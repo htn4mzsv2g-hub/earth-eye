@@ -42,6 +42,8 @@ Prepared 2026-09-28 CT. **Deployed 2026-09-28 CT** (spend approved by Ruben).
 
 ### Release history and rollback points
 
+**Current globe rollback (2026-09-29 ~9:34 AM CT):** Fly **v66**, image `registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z`, digest `sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824`, BUILD_ID `git-b846a3e-202609290929`, SHA `b846a3e0557bc879142aef69c2babd812757a9fc`, tag `known-good/iphone-globe-v66-b846a3e`. Owner confirmed physical iPhone drag and pinch. Command and identity: `docs/ROLLOUT_KNOWN_GOOD.md`. Do not redeploy that image to record it. The table below is older history, not the current tip.
+
 | Fly release | Image | Deployed (CT) | Code |
 | --- | --- | --- | --- |
 | v27 | `registry.fly.io/eartheye:deployment-01M3P3RRB0N4GNE1HYMGEMWSXR` | 2026-09-29 3:30 AM | iPhone perf wave 4 + Stage 5 matrix QA (`4561fb9`) |

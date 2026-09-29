@@ -5,13 +5,35 @@
 **Work branch:** `fix/audit10-workflow`  
 **Docs-only PR (earlier):** https://github.com/htn4mzsv2g-hub/earth-eye/pull/1 (`handoff/2026-09-29`)
 
+## Known-good iPhone globe (use this rollback)
+
+Owner Ruben confirmed physical iPhone **drag and pinch** on **2026-09-29 ~9:34 AM CT**. This supersedes the older “ticket still open / do not deploy” notes below for globe gestures.
+
+| Item | Value |
+| --- | --- |
+| Fly release | **v66** |
+| Image | `registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z` |
+| Digest | `sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824` |
+| BUILD_ID | `git-b846a3e-202609290929` |
+| SHA | `b846a3e0557bc879142aef69c2babd812757a9fc` |
+| Branch / PR | `cursor/restore-preaudit-globe-444e` · https://github.com/htn4mzsv2g-hub/earth-eye/pull/3 |
+| Tag | `known-good/iphone-globe-v66-b846a3e` |
+
+```bash
+HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
+  fly deploy -a eartheye --ha=false \
+  --image registry.fly.io/eartheye@sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
+```
+
+Canonical write-up: [`docs/ROLLOUT_KNOWN_GOOD.md`](docs/ROLLOUT_KNOWN_GOOD.md). Map: [`docs/IPHONE_GLOBE_RELEASE_MAP.md`](docs/IPHONE_GLOBE_RELEASE_MAP.md). Do not redeploy v66 just to record it. Do not roll the globe back to v57, v62, v64, or v65.
+
 ## Deployed production ↔ source mapping
 
 | Item | Value |
 | --- | --- |
 | Fly tip | **v58** (EE-AUDIT-10) |
 | Fly image | `registry.fly.io/eartheye:deployment-01M3PGAHGY0RGMBPRWY6A64BD0` |
-| Rollback | Not v57 and not v62. See `docs/IPHONE_GLOBE_RELEASE_MAP.md` |
+| Rollback | Globe: Fly **v66** digest in `docs/ROLLOUT_KNOWN_GOOD.md`. Not v57, v62, v64, or v65. |
 | Non-3D URL | https://eartheye.us/?ee_non3d=1 |
 
 ### Git commits on `fix/audit10-workflow`
@@ -28,7 +50,7 @@
 
 **Verified 2026-09-29 (restore branch):** `dc51575`, `bfe24f9`, `b15ea56`, `258ea66`, `5ae5e08`, and `b48f4b0` are **not git objects** in this clone or on GitHub (the API returns no commit). History here is squashed: `2afd378` (gods-eye-view handoff) → `d78c49c` (v58 checkpoint + WIP). Later freeze-patch names `5e56f29`, `ebafb9a`, and `e91d7a6` (claimed v63 tip) are also absent. Do not check them out. There is no `holdContinuousRender('camera-interact')` in this tree.
 
-**iPhone globe (ticket still open):** Fly **v64** `registry.fly.io/eartheye:deployment-01M3PP94CEW9K7HV9KSYRVVT3F` (BUILD MATCH `git-825a59d-202609291339`) still left `#loading-screen` hit-testable and `enableInputs` false. Do not treat v57 as a working rollback — it is after the non-3D audit. Do not use v62. Mapping, gesture classes, and the loader fix: `docs/IPHONE_GLOBE_RELEASE_MAP.md`. Physical drag and pinch are still required before this ticket closes. Do not deploy a speculative reset.
+**iPhone globe:** The working rollback is Fly **v66** (see the known-good section above), not this checkpoint’s v58 table. Historical defect: Fly **v64** `registry.fly.io/eartheye:deployment-01M3PP94CEW9K7HV9KSYRVVT3F` (BUILD MATCH `git-825a59d-202609291339`) left `#loading-screen` hit-testable and `enableInputs` false. v65 hid the loader and the detection surface took the touch. Do not treat v57 as a working rollback — it is after the non-3D audit. Do not use v62. Mapping: `docs/IPHONE_GLOBE_RELEASE_MAP.md`.
 
 **IMPORTANT:** Fly often deploys from the Grok Bot computer tree without requiring GitHub tip. Prefer this work branch over `main` for current app source. Keep unfinished work off stable `main`.
 
@@ -74,7 +96,7 @@ Remote work branch omits `docs/media/` marketing GIFs (~68MB) to keep the push b
 | --- | --- |
 | Tip release | **v58** (EE-AUDIT-10) |
 | Image | `registry.fly.io/eartheye:deployment-01M3PGAHGY0RGMBPRWY6A64BD0` |
-| Rollback | Not v57 and not v62. See `docs/IPHONE_GLOBE_RELEASE_MAP.md` |
+| Rollback | Globe: Fly **v66** digest in `docs/ROLLOUT_KNOWN_GOOD.md`. Not v57, v62, v64, or v65. |
 | Prior | **v56** EVENTS-3; **v55** graphics non-3D |
 | Branch tip | `fix/audit10-workflow` @ `5ae5e08` (WIP after deploy; see mapping above) |
 | Auth | Owner `LOGIN_*`; optional `REVIEWER_*` (temp ChatGPT audit) |
@@ -129,13 +151,9 @@ Prefer focused suites under `src/events/`, `src/app/graphicsRecovery.test.mjs`, 
 
 ## Rollback example
 
-Evaluate **v57** (pre-audit-10 / pre-v58). Not v62. v56 below is only the older events-4 rollback.
+Use Fly **v66** for the globe. The command is in the known-good section above and in `docs/ROLLOUT_KNOWN_GOOD.md`. Not v57, v62, v64, or v65.
 
-```bash
-HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
-  fly deploy -a eartheye --ha=false \
-  --image registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN
-```
+`registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN` is only the older events-4 / pre-v58 reference. It is not the iPhone globe rollback.
 
 ## Important architecture notes
 

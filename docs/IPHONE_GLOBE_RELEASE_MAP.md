@@ -1,6 +1,6 @@
 # iPhone globe — release map
 
-Ticket stays **open** until a physical iPhone can drag, pinch, and navigate. Unit tests and desktop Chrome are not that pass.
+**Known-good rollback is Fly v66** (`b846a3e`, BUILD_ID `git-b846a3e-202609290929`). Owner Ruben confirmed physical iPhone drag and pinch on 2026-09-29 ~9:34 AM CT. Canonical record and the `fly deploy --image` command: [`ROLLOUT_KNOWN_GOOD.md`](ROLLOUT_KNOWN_GOOD.md). Tag `known-good/iphone-globe-v66-b846a3e`. Do not redeploy this image to record it. Unit tests and desktop Chrome are not a substitute for that pass.
 
 ## What v64 showed
 
@@ -52,7 +52,7 @@ Lines to paste if another read is needed: `BUILD`, `META`, `LOADER AT OPEN`, `LO
 
 ## Last known movement
 
-No document records a signed physical drag-and-pinch pass. The last owner note that the hosted globe still moved is Stage 2: it felt laggy and less immersive than God’s Eye View on a physical iPhone (`docs/STAGE2_REPORT.md`). That era’s rollback image is Fly v7 `registry.fly.io/eartheye:deployment-01M3NP74GRYB7T6M59TY3R9PA2`. Stage 1 (v7) did not use a physical iPhone. Non-3D graphics recovery starts at Fly v55; the image before that is v54 `registry.fly.io/eartheye:deployment-01M3PEW4KQQ6ZC1V00HM0C2C8J`. **v57 is after the non-3D audit. It is not a known-good globe.** Do not roll back to v62.
+The signed physical drag-and-pinch pass is **Fly v66** (see below and [`ROLLOUT_KNOWN_GOOD.md`](ROLLOUT_KNOWN_GOOD.md)). Earlier, Stage 2 still moved on a physical iPhone and felt laggy and less immersive than God’s Eye View (`docs/STAGE2_REPORT.md`). That era’s image is Fly v7 `registry.fly.io/eartheye:deployment-01M3NP74GRYB7T6M59TY3R9PA2`. Stage 1 (v7) did not use a physical iPhone. Non-3D graphics recovery starts at Fly v55; the image before that is v54 `registry.fly.io/eartheye:deployment-01M3PEW4KQQ6ZC1V00HM0C2C8J`. **v57 is after the non-3D audit. It is not a known-good globe.** Do not roll back to v62, v64, or v65.
 
 ## v65: loader is gone; the detection surface took the touch
 
@@ -60,6 +60,30 @@ Fly **v65** BUILD MATCH `git-3831c06-202609290905`. `LOADER` is `class=hidden`, 
 
 The center hit was `canvas#world-overlay-detection-surface` (`pe=auto`, `z=5`) over `#cesiumContainer`. Gesture class A: the touch never reached the Cesium canvas. Compact mobile CSS restores gestures with `html.ee-compact:not([data-ee-overlay]) #cesiumContainer canvas { pointer-events: auto !important }`. The detection blend canvas is parented inside `#cesiumContainer`, so that rule made the full-bleed paint surface the hit target. The surface stays `pointer-events: none` (stylesheet exception plus inline `!important`). It is a blend layer, not an input layer. Scope mask, celestial ring, and wind canvases in the same container are exempt the same way. A free-nav `pointerdown` / `touchstart` turns camera inputs back on unless cockpit or an active gizmo/imagery drag owns them.
 
-## This fix is not a deploy
+## v66: known-good (physical drag and pinch)
 
-Source for the loader cap, input trace, and gesture recording is on the restore branch. It is not deployed. Deploy only after this note is the one being shipped. Success is still a physical drag and pinch.
+Owner Ruben confirmed this release on a physical iPhone on **2026-09-29 ~9:34 AM CT**.
+
+| Item | Value |
+| --- | --- |
+| Fly release | **v66** |
+| Image | `registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z` |
+| Digest | `sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824` |
+| BUILD_ID | `git-b846a3e-202609290929` |
+| SHA | `b846a3e0557bc879142aef69c2babd812757a9fc` |
+| Branch | `cursor/restore-preaudit-globe-444e` |
+| Tag | `known-good/iphone-globe-v66-b846a3e` |
+
+Rollback (digest pin; do not run this unless a later deploy is bad):
+
+```bash
+HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
+  fly deploy -a eartheye --ha=false \
+  --image registry.fly.io/eartheye@sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
+```
+
+Deployment tag for the same image: `registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z`. Full record: [`ROLLOUT_KNOWN_GOOD.md`](ROLLOUT_KNOWN_GOOD.md).
+
+## This fix shipped as v66
+
+The loader cap, input trace, gesture recording, and detection-surface `pointer-events: none` are what Fly **v66** is running. That image is the rollback point. Do not redeploy it to record the pass.
