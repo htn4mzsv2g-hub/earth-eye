@@ -4,6 +4,8 @@ import { initDrawTool } from '../annotations/drawTool.js';
 import { initImageryBoxTool } from '../ui/imageryBoxTool.js';
 import { createRecentImageryPanel } from '../ui/recentImagery.js';
 import { initGevVoiceCommands } from '../voice/gevRealtime.js';
+import { createGevActionRunner } from '../voice/gevActions.js';
+import { initAtlasConsole } from '../atlas/console.js';
 import { installScopeMask, destroyScopeMask } from '../scopeMask.js';
 import {
   installRenderGovernor,
@@ -12,6 +14,18 @@ import {
   holdContinuousRender,
   releaseContinuousRender,
 } from '../renderGovernor.js';
+import { applyMobileGpuTuning } from './mobileGpuProfile.js';
+import {
+  mountGraphicsRecoveryPanel,
+  dismissLoadingScreen,
+  clearCesiumErrorOverlay,
+  labelMapDependentUnavailable,
+  defaultGraphicsRetry,
+  degradedRunAction,
+} from './graphicsRecovery.js';
+import { attachDiagnosticViewer } from './globeDiagnosticsPanel.js';
+import { ensureLoaderReleased, installLoaderReleaseGuards } from './loadingScreenRelease.js';
+import { restoreCameraInputsUnlessCockpit } from './cameraInputTrace.js';
 
 /** Attach scene tools, rendering listeners and the application debug handle. */
 export function createApplicationTools({
@@ -27,7 +41,119 @@ export function createApplicationTools({
   signal,
   defer,
 }) {
-  const { viewer, tileset, mapStackController, operations } = scene;
+  const { viewer, tileset, mapStackController, operations, graphicsFailed, graphicsState } =
+    scene;
+
+  // ── Non-3D / graphics-failed audit mode ─────────────────────────────
+  // Auth/nav/panels already independently of Cesium. Mount recoverable UI,
+  // keep shell usable on real APIs, label 3D-only actions UNAVAILABLE.
+  if (graphicsFailed || !viewer) {
+    clearCesiumErrorOverlay(document);
+    dismissLoadingScreen(loadingScreen);
+    const { styleManager } = controls;
+    const { dataManager } = data;
+    const runAction = (name, args) => degradedRunAction(name, args);
+    const atlasConsole = initAtlasConsole({
+      viewer: null,
+      dataManager,
+      styleManager,
+      sceneDirector: null,
+      runAction,
+      signal,
+      graphicsFailed: true,
+      graphicsState: graphicsState || null,
+    });
+    defer(() => atlasConsole.destroy());
+    const recovery = mountGraphicsRecoveryPanel({
+      state:
+        graphicsState || {
+          headline:
+            '3D view is unavailable in this browser. You can still explore available data.',
+          message: 'Graphics initialization failed.',
+          detail:
+            'Place search, cameras, World Events, source health, and Analyst remain available on real APIs. Fly-to, Follow, and Cockpit are UNAVAILABLE.',
+        },
+      onRetry: () => defaultGraphicsRetry(),
+      onContinue: () => {
+        labelMapDependentUnavailable(document.getElementById('atlas-console') || document.body);
+      },
+    });
+    defer(() => recovery.destroy());
+    labelMapDependentUnavailable(
+      document.getElementById('atlas-console') || document.body,
+    );
+    if (startChrome)
+      defer(
+        startChrome({
+          loadingScreen,
+          styleManager,
+          dataManager,
+          signal,
+        }),
+      );
+    window.__godsEyeView = {
+      viewer: null,
+      graphicsFailed: true,
+      styleManager,
+      dataManager,
+      surfaceServices: operations?.surface || null,
+    };
+    window.__atlasEye = Object.assign(window.__atlasEye || {}, {
+      app: window.__godsEyeView,
+      runAction,
+      graphicsFailed: true,
+    });
+    defer(() => {
+      if (window.__godsEyeView?.graphicsFailed) delete window.__godsEyeView;
+    });
+    return {
+      sceneDirector: null,
+      annotations: null,
+      voiceCommands: null,
+      graphicsFailed: true,
+      atlasConsole,
+    };
+  }
+
+  applyMobileGpuTuning(viewer);
+  attachDiagnosticViewer(viewer);
+  // Re-hide a loader that startup left up, and put camera inputs back if a
+  // flight callback never restored them. Two beats, not a continuous hammer:
+  // a drag tool may legitimately set inputs false after the user starts one.
+  const releaseStuckStartup = (reason) => {
+    ensureLoaderReleased(document);
+    restoreCameraInputsUnlessCockpit(viewer, document, reason);
+  };
+  const startupReleaseTimers = [3000, 8000].map((delay) =>
+    setTimeout(() => releaseStuckStartup(`startup-${delay}`), delay),
+  );
+  const startupReleaseUntil = Date.now() + 30000;
+  const releaseIfVisible = () => {
+    if (document.hidden) return;
+    if (Date.now() > startupReleaseUntil) {
+      document.removeEventListener('visibilitychange', releaseIfVisible);
+      return;
+    }
+    releaseStuckStartup('visible');
+  };
+  document.addEventListener('visibilitychange', releaseIfVisible);
+  const removeLoaderGuards = installLoaderReleaseGuards(document);
+  // A sticky enableInputs=false (v64) must be gone before Cesium handles the
+  // gesture. Capture runs before the gizmo and imagery box claim the drag,
+  // and those owners set their hold on the way down, so a free-nav touch
+  // turns inputs back on and an active cockpit or gizmo drag does not.
+  const restoreFreeNavInputs = () => {
+    restoreCameraInputsUnlessCockpit(viewer, document, 'gesture');
+  };
+  document.addEventListener('pointerdown', restoreFreeNavInputs, true);
+  document.addEventListener('touchstart', restoreFreeNavInputs, true);
+  defer(() => {
+    for (const timer of startupReleaseTimers) clearTimeout(timer);
+    document.removeEventListener('visibilitychange', releaseIfVisible);
+    document.removeEventListener('pointerdown', restoreFreeNavInputs, true);
+    document.removeEventListener('touchstart', restoreFreeNavInputs, true);
+    removeLoaderGuards();
+  });
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager, {
@@ -176,5 +302,32 @@ export function createApplicationTools({
       delete window.__gevVoiceCommands;
   });
   debug.voiceCommands = voiceCommands;
+  // Earth Eye: typed commands drive a second runner over the same scene
+  // services the voice agent uses, so both paths share one action vocabulary.
+  const atlasRunner = createGevActionRunner({
+    ...voice,
+    floorServices: operations.surface.groundFloor,
+    annotationResolver: operations.annotationResolver,
+    searchNavigation: operations.searchAndFlyTo,
+    placeSearch,
+    viewer,
+    styleManager,
+    dataManager,
+    sceneDirector,
+    annotations,
+  });
+  const atlasConsole = initAtlasConsole({
+    viewer,
+    dataManager,
+    styleManager,
+    sceneDirector,
+    runAction: (name, args) => atlasRunner(name, args, { signal }),
+    signal,
+  });
+  defer(() => atlasConsole.destroy());
+  window.__atlasEye = Object.assign(window.__atlasEye || {}, {
+    app: debug,
+    runAction: (name, args) => atlasRunner(name, args, { signal }),
+  });
   return { sceneDirector, annotations, voiceCommands };
 }

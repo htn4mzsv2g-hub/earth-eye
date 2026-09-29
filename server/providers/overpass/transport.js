@@ -60,6 +60,19 @@ function overpassPayloadIsData(payload) {
   );
 }
 
+/** Stable response when no Overpass upstream is configured (OpenFreeMap path). */
+export function overpassNotConfigured() {
+  return {
+    status: 503,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      error: 'Detailed OpenStreetMap queries are not configured',
+      code: 'OVERPASS_NOT_CONFIGURED',
+      retryable: false,
+    }),
+  };
+}
+
 /**
  * Try each mirror once, retaining response-size and per-mirror timeout caps.
  * Refusals and body-level failures rotate; total failure returns the last
@@ -79,6 +92,7 @@ async function fetchOverpassPayload(
     simplify = simplifyOverpassPayloadBody,
   } = {},
 ) {
+  if (!endpoints.length) return overpassNotConfigured();
   let lastError = null;
   let lastRateLimitPayload = null;
   let lastRefusalPayload = null;

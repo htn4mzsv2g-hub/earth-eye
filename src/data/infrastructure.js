@@ -21,7 +21,7 @@ export function createInfrastructureLayers(services) {
       name: 'Datacenters',
       color: '#00ffff', // Cyan
       icon: '▣',
-      source: 'Local',
+      source: 'OSM snapshot',
       labels: true,
       labelMax: 700,
       labelGridPx: 138,
@@ -36,7 +36,7 @@ export function createInfrastructureLayers(services) {
       name: 'Dams',
       color: '#0088ff', // Blue
       icon: '▰',
-      source: 'USACE',
+      source: 'OSM/OpenInfraMap snapshot',
       labels: true,
       labelMax: 900,
       labelGridPx: 132,

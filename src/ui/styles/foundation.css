@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   EARTH EYE — Dark tactical console UI
+   EARTH EYE — dark console UI (adapted from God's Eye View, MIT)
    Apple meets Blade Runner
    ═══════════════════════════════════════════════ */
 
@@ -535,17 +535,18 @@ body:has(.data-toggle-row[data-layer-id='alpr-cameras'] .data-toggle-btn.active)
   font-family: var(--font-mono);
   font-size: 26px;
   font-weight: 600;
-  letter-spacing: 0;
+  letter-spacing: 8px;
   color: var(--text-primary);
+  text-shadow: 0 0 30px var(--accent-glow);
   position: relative;
 }
 
 #title-bar .title-logo {
   position: relative;
   display: block;
-  width: min(460px, 58vw);
+  width: 52px;
   height: auto;
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.16));
+  filter: drop-shadow(0 0 12px rgba(0, 246, 255, 0.5));
 }
 
 #title-bar .title-logo::before,
@@ -604,7 +605,7 @@ body:has(.data-toggle-row[data-layer-id='alpr-cameras'] .data-toggle-btn.active)
 }
 
 .brand-logo {
-  aspect-ratio: 780 / 110;
+  aspect-ratio: 775 / 520;
   overflow: visible;
   pointer-events: none;
 }

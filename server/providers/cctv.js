@@ -5,7 +5,6 @@ import {
   toFiniteNumber,
 } from './cctv/normalize.js';
 import {
-  buildSyntheticCctvSvg,
   proxyMediaResponse,
   fetchCctvImageFromUpstream,
   fetchTxdotSnapshot,
@@ -19,14 +18,36 @@ import {
 import { sanitizeCctvRangeHeader } from './cctv/range.js';
 import { createHlsPuller } from './cctv/stream.js';
 import { googleServerApiKey } from './places/google-key.js';
+import {
+  describeCctvMedia,
+  isClipUrl,
+  publicCctvMedia,
+} from './cctv/mediaKind.js';
+import { publicPackPermissions } from './cctv/permissions.js';
+
+/**
+ * Street View frames are opt-in (CCTV_STREETVIEW_FALLBACK=1): they show a
+ * different, older image than the camera, so they are never a silent default.
+ *
+ * @returns {boolean}
+ */
+export function streetViewFallbackEnabled() {
+  const raw = String(process.env.CCTV_STREETVIEW_FALLBACK || '')
+    .trim()
+    .toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
 export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
 /**
  * Vite plugin: CCTV camera proxy with source registry, frame/media serving,
- * fallback chain (upstream -> Street View -> synthetic SVG), and health tracking.
+ * fallback chain (upstream -> opt-in Street View FALLBACK -> honest 404/502;
+ * no generated placeholder frames), and health tracking.
  *
  * Endpoints:
  *   GET /api/cctv/sources        — list all registered camera sources
  *   GET /api/cctv/health         — per-camera health/status report
+ *   GET /api/cctv/pack-health    — per-provider pack health + permission status
+ *   GET /api/cctv/clip/:id       — provider-published recorded clip (TfL .mp4)
  *   GET /api/cctv/stream/:id     — stream info (feedType, URLs) for a camera
  *   GET /api/cctv/media/:id      — proxy live video/image media from upstream
  *   GET /api/cctv/frame/:id      — single frame with fallback chain
@@ -113,7 +134,7 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
       sv.searchParams.set('key', streetViewKey);
 
       const svResp = await fetch(sv.toString(), {
-        headers: { 'User-Agent': 'gods-eye-view-cctv-proxy/1.0' },
+        headers: { 'User-Agent': 'earth-eye-cctv-proxy/1.0' },
         signal: AbortSignal.timeout(CCTV_FRAME_FETCH_TIMEOUT_MS),
       });
       const svType = svResp.headers.get('content-type') || '';
@@ -135,6 +156,37 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
     });
     server.middlewares.use('/api/cctv', async (req, res) => {
       try {
+        // Permission records per pack (no catalog fetch needed).
+        if ((req.url || '').split('?')[0] === '/permissions') {
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          });
+          res.end(JSON.stringify({ packs: publicPackPermissions() }));
+          return;
+        }
+        // Per-pack source health + permission status (no catalog fetch).
+        if ((req.url || '').split('?')[0] === '/pack-health') {
+          const perms = new Map(
+            publicPackPermissions().map((p) => [p.pack, p]),
+          );
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          });
+          res.end(
+            JSON.stringify({
+              packs: getCctvSources.health().map((h) => ({
+                ...h,
+                provider: perms.get(h.pack)?.provider || h.pack,
+                review: perms.get(h.pack)?.review || 'unknown',
+                reviewedAt: perms.get(h.pack)?.reviewedAt || null,
+                license: perms.get(h.pack)?.license || null,
+              })),
+            }),
+          );
+          return;
+        }
         const sources = await getCctvSources();
         const sourceById = new Map(
           sources.map((source) => [source.id, source]),
@@ -166,6 +218,9 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
               credit: source.credit || '',
               code: source.code || '',
               groundHeights: source.groundHeights || null,
+              // Honest media class from the provider's own URLs (m3u8 = live,
+              // mp4 = clip, image = still). URLs stay server-side.
+              media: publicCctvMedia(source, source.id),
             })),
           };
           res.writeHead(200, {
@@ -199,10 +254,11 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
           return;
         }
 
-        if (url.pathname.startsWith('/media/')) {
-          const match = /^\/media\/([^/]+)(?:\/(seg_(\d+)\.ts))?$/.exec(
-            url.pathname,
-          );
+        const clipMatch = /^\/clip\/([^/]+)$/.exec(url.pathname);
+        if (url.pathname.startsWith('/media/') || clipMatch) {
+          const match = clipMatch
+            ? [clipMatch[0], clipMatch[1], undefined, undefined]
+            : /^\/media\/([^/]+)(?:\/(seg_(\d+)\.ts))?$/.exec(url.pathname);
           if (!match) {
             res.writeHead(404);
             res.end();
@@ -210,8 +266,15 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
           }
           const cameraId = decodeURIComponent(match[1]);
           const source = sourceById.get(cameraId);
-          const mediaUrl = source?.url || '';
-          const feedType = normalizeFeedType(source?.feedType || 'image');
+          // /clip/:id serves only a provider-published recorded clip (TfL
+          // JamCam .mp4), pinned server-side; never a client-supplied URL.
+          const clipUrl = describeCctvMedia(source || {}).clip
+            ? source?.clipUrl || (isClipUrl(source?.url) ? source.url : '')
+            : '';
+          const mediaUrl = clipMatch ? clipUrl : source?.url || '';
+          const feedType = clipMatch
+            ? 'mp4'
+            : normalizeFeedType(source?.feedType || 'image');
           const leaseId = url.searchParams.get('lease');
           if (feedType === 'hls' && !/^[a-f0-9-]{36}$/i.test(leaseId || '')) {
             res.writeHead(400);
@@ -344,7 +407,7 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
           const downstream = watchDownstreamClose(res);
           try {
             const upstreamHeaders = {
-              'User-Agent': 'gods-eye-view-cctv-proxy/1.0',
+              'User-Agent': 'earth-eye-cctv-proxy/1.0',
             };
             // Never forward the client's own string: a Range this proxy does
             // not accept is dropped and the request proceeds without one.
@@ -404,18 +467,26 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             } else {
               setHealth(cameraId, {
                 status: 'ok',
-                sourceKind: isVideoFeedType(feedType) ? 'live' : 'snapshot',
+                sourceKind: clipMatch
+                  ? 'clip'
+                  : isVideoFeedType(feedType)
+                    ? 'live'
+                    : 'snapshot',
                 label: source?.provider || 'Configured source',
-                message: isVideoFeedType(feedType)
-                  ? 'Live stream connected'
-                  : 'Snapshot feed connected',
+                message: clipMatch
+                  ? 'Recorded clip loaded'
+                  : isVideoFeedType(feedType)
+                    ? 'Live stream connected'
+                    : 'Snapshot feed connected',
               });
             }
 
             await proxyMediaResponse(res, upstream, {
-              sourceHeader: isVideoFeedType(feedType)
-                ? 'live-media'
-                : 'upstream-image',
+              sourceHeader: clipMatch
+                ? 'provider-clip'
+                : isVideoFeedType(feedType)
+                  ? 'live-media'
+                  : 'upstream-image',
             });
             return;
           } catch (error) {
@@ -500,18 +571,25 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             'Content-Type': upstreamImage.contentType,
             'Cache-Control': 'no-store',
             'X-CCTV-Source': 'upstream-image',
+            ...(upstreamImage.lastModified
+              ? { 'X-CCTV-Frame-Time': upstreamImage.lastModified }
+              : {}),
           });
           res.end(upstreamImage.body);
           return;
         }
 
-        const sv = await streetViewFallback({
-          lat,
-          lon,
-          heading,
-          fov,
-          pitch,
-        });
+        // Street View is a different image than the camera sees. It is off
+        // unless CCTV_STREETVIEW_FALLBACK=1, and then labeled FALLBACK.
+        const sv = streetViewFallbackEnabled()
+          ? await streetViewFallback({
+              lat,
+              lon,
+              heading,
+              fov,
+              pitch,
+            })
+          : null;
         if (sv?.ok) {
           setHealth(cameraId, {
             status: 'degraded',
@@ -522,36 +600,41 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
           res.writeHead(200, {
             'Content-Type': sv.contentType,
             'Cache-Control': 'no-store',
-            'X-CCTV-Source': 'streetview',
+            'X-CCTV-Source': 'streetview-fallback',
           });
           res.end(sv.body);
           return;
         }
 
-        const svg = buildSyntheticCctvSvg({
-          cameraId,
-          label,
-          city,
-          status: source?.url
-            ? 'UPSTREAM UNAVAILABLE'
-            : 'NO UPSTREAM CONFIGURED',
-        });
-
+        // No real frame: say so. Never serve a generated placeholder image
+        // (the old synthetic SVG frame was removed in the data-honesty pass).
+        const hasStill = describeCctvMedia(source || {}).still;
         setHealth(cameraId, {
           status: 'degraded',
-          sourceKind: 'synthetic',
-          label: source?.provider || 'Synthetic fallback',
-          message: source?.url
-            ? 'Upstream unavailable'
-            : 'No source configured',
+          sourceKind: 'unavailable',
+          label: source?.provider || 'Unknown camera',
+          message: !source
+            ? 'Unknown camera'
+            : hasStill
+              ? 'Upstream still unavailable'
+              : 'Provider publishes no still image for this camera',
         });
-
-        res.writeHead(200, {
-          'Content-Type': 'image/svg+xml',
+        res.writeHead(source ? (hasStill ? 502 : 404) : 404, {
+          'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
-          'X-CCTV-Source': 'synthetic',
+          'X-CCTV-Source': 'unavailable',
         });
-        res.end(svg);
+        res.end(
+          JSON.stringify({
+            error: !source
+              ? 'Unknown camera'
+              : hasStill
+                ? 'Upstream still unavailable'
+                : 'No still image published for this camera',
+            label: String(label).slice(0, 120),
+            city: String(city).slice(0, 80),
+          }),
+        );
       } catch (error) {
         console.error('[CCTV Proxy]', error?.message || String(error));
         res.writeHead(500, { 'Content-Type': 'application/json' });

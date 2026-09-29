@@ -1,0 +1,108 @@
+# File-level blob-SHA compare: atlas-eye@c6ef09d vs earth-eye-restore@b846a3e
+# Histories are DIVERGENT (git merge-base returns empty); tree compare used.
+# tip-only (added vs kg): 15
+# kg-only (deleted at tip): 12
+# content-changed (blob sha differs): 39
+# identical (same blob sha, non-omitted): 1771
+# omitted tip-only: 19
+# omitted kg-only: 4
+# omitted content-changed: 0
+
+## ADDED at tip (not in known-good)
+A	6c2494b42d92483cf3fe5f3802130c0ada7930b9	docs/EE_CHECKPOINT_VERIFY.md
+A	24a336fe2b74a3bb1ce96c7049edda13addfdbb2	docs/EE_EVENTS_FOLLOW_FINDINGS.md
+A	afd54e369384f7489a40a1ed9d6aacd0883380f1	docs/EE_EVENTS_FOLLOW_MILESTONE.md
+A	50f30acb2ce4eef4e195a4b13fdc9fb2306af53d	docs/EE_IPHONE_GLOBE_FREEZE_REGRESSION_2026-09-29.md
+A	6c37c9bfdc5ea373727357136c1a04b5643b9d27	docs/UPSTREAM_DELTA_REVIEW.md
+A	6e0fc8bc74a768742e592eb2b8fe49308b6bc214	docs/media/README.md
+A	bd7d7f4f54c7cabb9c5f9b0f3d51be9dca3aac1e	scripts/ee-iphone-globe-probe.mjs
+A	215c04128d6159aa25212460279d49b8a95c25c4	server/production/static.cache.test.mjs
+A	bff3a0d2e5e16fe1a065c24ed03b769018c5cfc4	src/app/eeDiagnostics.js
+A	a9ee9444cacc54a84049347723115d4f0b746c38	src/app/eeDiagnostics.test.mjs
+A	5cfa1be815689de64d7f316eba1a6de8d523f168	src/app/globeInteract.js
+A	4bdd8eaddda3d05a4de25aa4efb058fccb31aadf	src/app/globeInteract.test.mjs
+A	a3f495100ef36b709e5d1df2369d4b2caf52b363	src/atlas/mobileOverlayRestore.test.mjs
+A	45358cfac881792326872aed38fe24b76c254acc	src/events/live/followAvailability.js
+A	8e61ef0b3d96fc1ce3ca0cf091c7975abc6b1495	src/events/live/followHonesty.test.mjs
+
+## DELETED at tip (present only in known-good)
+D	cc13a5d6560522c68e3f90075d86e4fc98a06760	config/cctv_sources.shinjuku.json
+D	5c383797e9e3a92984d216481ffae8fdec969362	docs/IPHONE_GLOBE_RELEASE_MAP.md
+D	f753bca0bdb4505ee34f3e6bb6b78eaddd70a950	earth-eye-vs-upstream.patch
+D	f6d41daaeb0038f478dda942df8d6da3f185f8af	src/app/buildStamp.js
+D	a75f725e385149d322ff52bf5e4fd1238d90befe	src/app/cameraInputTrace.js
+D	6556689b359808946cfd2f15f6609714314f4c4e	src/app/cameraInputTrace.test.mjs
+D	6f19d277b2e93ac75e344cd701dd6fd6e1b55c58	src/app/globeDiagnosticsPanel.js
+D	4e4826ad5e6c629648c859423de0e7a5bff609ca	src/app/globeGestureTrace.js
+D	c4db596894733c2112501d35e1ecf45af4d015ef	src/app/globeGestureTrace.test.mjs
+D	ce086aff17a0ee5be789e3b37e6af1c9557389e8	src/app/loadingScreenRelease.js
+D	7e2b873c25a17fedf291c2806120fe7060acf17e	src/app/loadingScreenRelease.test.mjs
+D	a7ba1d3254b90f90988e7921233f4c9bc931c69d	src/atlas/mobileGlobeHit.test.mjs
+
+## CHANGED (blob SHA differs)
+M	ca11cfb11ea29ac79be723ef089a4467ce742f66	34378427ea38016f05eab4e2d506532f15f4d7e5	Dockerfile
+M	38f829d8c1c09d19deeb3b279f3c649830da08a0	968a61180dcd2605200f14f479c5e78451a9dccf	HANDOFF.md
+M	b14210a5695d780f565e4122e9461d9d8d6a6b0d	0383e971bc561ce3c821f20319adc7cd5667732b	build/application-html.js
+M	2b52c15f32d82b8e92696734c3f27e8f647a259c	4995389c7ad1f54b6021445692b1fd1389d22ca4	build/vite.js
+M	ffdcab0db189201e26d65553d38e39f0d4ca62a3	5a634b845e590bca34548c335135cd5ab3b97d7c	docs/EE_AUDIT10_WORKFLOW_FINDINGS.md
+M	1bb8121fc80a12e9ae6de34e5ae19b43abe02aef	1ab9950adfefdef8f3bea73050bb0a9a7481eb3e	docs/EE_GRAPHICS_RECOVERY_FINDINGS.md
+M	4fa94e24e35cf356ad788867c6f742a86ce61046	abf4d0e3fbe7c8d80a90dac66465abe09250cfaf	docs/EE_GRAPHICS_RECOVERY_MILESTONE.md
+M	eb6b3aaf3a6a09d1e677fd51e48793f490d21d98	dd700b5e2f60ab9bb240cd1098d92e553c415b75	scripts/package-boundaries.json
+M	70e344eb188e83d431b4c90cb9a47276c1865c90	f120abbb95827eaf9f6a7b226050adf1d9b8867d	server/production/static.js
+M	c6130a118a544c316bfa8921070bc25a20e694ea	4907d5315e321827a80b6b6c053048e30e50bc3e	src/app/graphicsRecovery.js
+M	9b67944ccaf3109ee4ae8ed894e7b32142b4e2dc	a9009e089a8b7de7c61b0cf5853a374988164392	src/app/graphicsRecovery.test.mjs
+M	f6bb1cb7c3f814c3b79b2f41ba8a8dc026d24715	0af84d962830a5df745eba7f48d52b4122dcbe29	src/app/scene.js
+M	f34195aea2de331e3e00acb519c05e3a156fb970	6f5c70662ff8cf4316f22dd34aef091ddc27eb97	src/app/startupChrome.js
+M	35676cb2c434b69f90cb3c0a8d77b460aa7782ee	af580c836d03a71f56c6b7d8edae1ffb83d3c7a8	src/app/tools.js
+M	afe0c0c50d09fb78fb14f1ff30c3a69f5637d8f2	13eb576812c759984a11373a52fd12dc8f1379ae	src/app/viewer.js
+M	1c94c9d41f475f86b48fc6071cd65154f59b719d	ce4bc41a9d7c00933944d669ddd21f1f25da9858	src/atlas/atlas.css
+M	506b015826b3aafdce9c6d7fa12494195f95ffbe	38bc9c208a2de58dcf4cea395d5bd371d7bc551b	src/atlas/console.js
+M	14d20508d6a2e79fa42d77a2fb71afe9a18d8f67	509f66a565609ae9c8338dcc6b0f1859ccf05274	src/atlas/mobile.css
+M	012f99af041202f475a3e9c71b30c9d322beed01	0ae0c9151cf1dd318da8959b0f13870d8e2b3c85	src/atlas/mobileShell.js
+M	809896fc8f5858d8a7c132d4e9eb2af704394d58	20ffdd4d276917e902ee0adf89b0057dd553096d	src/atlas/selectionCard.js
+M	bc50f3b4b5b9fdf90eb0296b4c4efb3b8dcb27d1	f3816abe529c07f4564c478a98513d4376c67ef1	src/atlas/selectionCard.test.mjs
+M	670607aa092e9e937b20ac2f9580552fcb9e3b11	efca816ec27aca3c5ea460c194b21fe32aa9126b	src/atlas/ux4.test.mjs
+M	9314b95c8ce86e2b7e8ba14eebb26a85113a4675	6e7e18bcb81bbaeb781643f63930dd0a856f9d39	src/data/cctvGizmo.js
+M	a20e81abe71afe3c88a57766134294fa3c290a4b	0f46812479e9f0f19fc302cc87df1129b09858fd	src/data/localGeojsonCore.js
+M	c5df62c0cc6f57f25092a0d6afccee04f5166de9	19ac6a80c44f12c2f16044c3897fbcf142719c50	src/events/index.js
+M	4ae2f6dae95080725554f5d12431f0a6a30262e8	283ff2b89b5030b9403318bce54ff42e992ed34f	src/events/live/controller.js
+M	5bfa2eb7c6dbcc2df2e0df3b648354bab455daf3	3dd7ebf9573fea6c47b490b06edaab001399fdac	src/events/live/detail.js
+M	e71cc94980aeba2e2149823c1d50d470623f458b	09c829c963baf04ada3a3a355fd9b43ebec3ed4a	src/events/live/index.js
+M	1889869a4e65cfc7c873c7cf61c8e31bb6137530	599314a13bf26fdc2a2585d86dde2e87f14c9d1e	src/events/live/panel.js
+M	603495102cce66cde863eba21020005489b6675e	65ae56c2d4aec61b720c0b831c695ae9977d4840	src/events/live/selectionBridge.js
+M	31a87d135ca8b608631b99dd0527b891165a68e6	637307b534c9d1a4ca32e2fad863b8cd906522f5	src/firstRunExperience.test.mjs
+M	59d5f22e663b97315f52b9923772ef9ac7d7c658	08094a04e7db797de6eb52836ca81d77bb874f23	src/main.js
+M	16fdaeaa1b3fc133f3e2c710ead0f8e156dcec74	cce087a52e783a4a010ce36d58c1b5b792490f30	src/overlays/worldOverlay.js
+M	4da6124dc226dacadc9ce7a1eba1242aeead8403	b51678b520cd39ea24a0b752bfe0f357912f930d	src/standalone/startupChrome.test.mjs
+M	ab0e3ebcd1ac8ba426bccd60fe653523e36aa87c	98b232f70014d764cc8163635678b1fe9e2ca66f	src/ui/imageryBoxTool.js
+M	55962921f1139e2bc3703303d72f88e2e280c04f	714ad6b875a2ccf381d61bd17542777659967da0	src/ui/shareRestoration.js
+M	b4d1ff295c0c16b3010faceb51130097b315aed0	426a61956c7c241d5848cfc54337bce5f6628149	src/ui/styles/controls.css
+M	97e3c97651bd1e1e9293d5fa39f12c4bb8ff550d	2f9f6b6a6132cd8fdd6e6f4b0255e823addec703	src/ui/styles/foundation.css
+M	8035356b252bae8db77bc2b7e2842c673227d188	62f8e64acd73e45baf2dec880d6838bd735fb3b2	src/voice/gevActions.test.mjs
+
+## OMITTED from archive content (see OMISSIONS.md) — tip-only
+OMIT_A	e568e3e8567344fbd0dd68759b85e818bbac2f57	docs/media/01-style-sweep.gif
+OMIT_A	c5a5b71c52df3c61c4aa4212ff1a56c9c80378dd	docs/media/01-voice-annotate-zilker.gif
+OMIT_A	942cb8f155951ef5f06394071e921bc3bfc0ccd6	docs/media/03-austin-cctv.gif
+OMIT_A	3e0579af5515e424034b96c06b4a8e907a9914c3	docs/media/04-airport-distance.gif
+OMIT_A	86c4768543cb4a082b9eba412f8ed9d32716b94e	docs/media/05-traffic-to-cctv.gif
+OMIT_A	ace7354837488cfc45ff879c9386968a942bd7dd	docs/media/06-cockpit-ar.gif
+OMIT_A	e9c8646c8b5ab40712d7a79099234dfa0c7efe1b	docs/media/07-helicopter-loops.gif
+OMIT_A	6deb246166e9d395306705c9ba726ef083cfacd6	docs/media/08-boneyard.gif
+OMIT_A	f73259d6e2c197f312feb39f8dd54bc59b3b357a	docs/media/08-falcon9-replay.gif
+OMIT_A	1d9b00f5a15cba6de780aa854f4b3bcc2e0302b5	docs/media/09-undersea-cables.gif
+OMIT_A	03b44f75b9a251da81a70d5a7a93439e4ea418b1	docs/media/10-walking-route-flythrough.gif
+OMIT_A	7aea557cffc566f79ec626e913691f3f0a02e6cf	docs/media/12-switch-aircraft-cockpit.gif
+OMIT_A	12f09a2295c5688b7780baa334b7ad3e0f6e9554	docs/media/14-iss-over-ukraine.gif
+OMIT_A	849e61e2a6bb7525f6429cd921c82bfc7b1c61e7	docs/media/15-global-radio-layer.gif
+OMIT_A	0e9e6a5c47fa1fe9373b24316f6bd9ce731e7c0c	docs/media/hero-open-source-reveal.gif
+OMIT_A	7dfed82aee3b99a5bab4b60e4b88a8bb729c4c17	docs/media/open-source-survey.png
+OMIT_A	74fb28cc93610dc96be21fa9ad995365fe999188	docs/media/start-here/airport-ground-traffic-google-3d.gif
+OMIT_A	a6432b35d721b6af5c65cf73032bcc0298787f99	docs/media/start-here/military-cockpit-dense-google-3d.gif
+OMIT_A	6454f88f157ad0c69c19d6c126dba4637c638135	docs/media/youtube-popular-videos.png
+
+## OMITTED — kg-only
+OMIT_D	ac27fdf896f10e6062d59a0530f2b5ff64eb808c	handoff-screenshots/console.png
+OMIT_D	f9520f6e8c265d1c9fecfd92d36d0eba8f28a28f	handoff-screenshots/earth-eye-logo.png
+OMIT_D	f089ce65aa4d0a8087f7c8d7cff925e2405c1ed7	handoff-screenshots/flir.png
+OMIT_D	bec98fce9c94b095aad4aa61ba65e23f68759c6b	handoff-screenshots/layers.png

@@ -138,7 +138,12 @@ test('nothing promises a GeoJSON export for drawn shapes', () => {
       `${file} still claims a GeoJSON export`,
     );
   }
-  for (const file of ['README.md', 'CHANGELOG.md', 'docs/CURRENT-STATE.md']) {
+  // Earth Eye: the upstream README is preserved verbatim at docs/UPSTREAM-README.md.
+  for (const file of [
+    'docs/UPSTREAM-README.md',
+    'CHANGELOG.md',
+    'docs/CURRENT-STATE.md',
+  ]) {
     const source = read(file);
     const at = source.indexOf('DISPLAY ▸ **Draw**');
     const start = at >= 0 ? at : source.indexOf('DISPLAY ▸ Draw');

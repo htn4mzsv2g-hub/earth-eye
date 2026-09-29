@@ -536,7 +536,7 @@ export function createControls({ state: layerState, services, parts, source }) {
     },
 
     getStats() {
-      return {
+      const stats = {
         count: layerState._count,
         lastUpdate: layerState._lastUpdate,
         stale: false,
@@ -548,6 +548,13 @@ export function createControls({ state: layerState, services, parts, source }) {
               : 'nominal',
         error: layerState._lastError,
       };
+      // Earth Eye: a reduced AMSAT catalog must read FALLBACK, not LIVE.
+      if (layerState._fallbackNote && stats.status !== 'unavailable') {
+        stats.fallback = true;
+        stats.status = 'fallback';
+        stats.source = layerState._fallbackNote;
+      }
+      return stats;
     },
   };
 

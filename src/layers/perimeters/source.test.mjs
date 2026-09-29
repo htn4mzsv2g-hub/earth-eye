@@ -115,3 +115,20 @@ test('response-body completion honors cancellation without replacing records', a
     name: 'AbortError',
   });
 });
+
+test('viewport bbox is sent to the perimeter proxy', async () => {
+  let requested;
+  const source = createWfigsPerimeterSource({
+    fetchImpl: async (url) => {
+      requested = String(url);
+      return Response.json({ rows: [] });
+    },
+  });
+  await source.getSnapshot({
+    bbox: { west: -98.2, south: 29.8, east: -97.2, north: 30.7 },
+  });
+  assert.equal(
+    requested,
+    '/api/fire-perimeters?bbox=-98.2000%2C29.8000%2C-97.2000%2C30.7000',
+  );
+});

@@ -148,8 +148,10 @@ test('repeated Esri shot handoffs retain imagery and keep tile fallback live', a
   assert.equal(env.removed.length, 0);
   assert.equal(errors.size, 1);
   assert.equal(env.controller.getSwitchGeneration(), generation + 3);
-  errors.raise();
-  errors.raise();
+  for (let i = 0; i < 15; i++) errors.raise();
+  await settle();
+  assert.equal(env.controller.getActiveId(), 'esri-imagery', 'under threshold stays Esri');
+  errors.raise(); // 16th → OSM fallback
   await settle();
   assert.equal(env.controller.getActiveId(), 'osm');
   assert.equal(env.removed.length, 1);
@@ -271,7 +273,7 @@ test('Esri construction fallback reports and attributes the source actually rend
   env.controller.destroy();
 });
 
-test('one Esri tile failure stays put, two fall back, and stale errors cannot replace a selection', async () => {
+test('few Esri tile failures stay put, threshold falls back, and stale errors cannot replace a selection', async () => {
   const env = publicFixture();
   await env.controller.setStack('esri-imagery');
   assert.equal(env.credits.size, 1);
@@ -279,13 +281,13 @@ test('one Esri tile failure stays put, two fall back, and stale errors cannot re
   errorEvent.raise();
   await settle();
   assert.equal(env.controller.getActiveId(), 'esri-imagery');
-  errorEvent.raise();
+  for (let i = 0; i < 15; i++) errorEvent.raise();
   await settle();
   assert.equal(env.controller.getActiveId(), 'osm');
   assert.equal(env.credits.size, 0);
   assert.equal(
     env.controller.getState().lastError,
-    'Esri Satellite tile requests failed; using OSM',
+    'Esri Satellite tiles failing; falling back to OSM roads (not aerial)',
   );
   assert.equal(errorEvent.size, 0);
   await env.controller.setStack('photoreal');
@@ -581,8 +583,7 @@ test('release keeps a fallback that replaced the comparison stack', async () => 
   });
   await lease.ready;
   const errors = env.providers.get('esri-imagery').errorEvent;
-  errors.raise();
-  errors.raise();
+  for (let i = 0; i < 16; i++) errors.raise();
   await settle();
   assert.equal(env.controller.getActiveId(), 'osm');
   await lease.release();
@@ -788,10 +789,9 @@ test('each switch generation reports its origin: an outside setStack is manual, 
   await env.controller.setStack('esri-imagery');
   assert.equal(env.controller.getSwitchOrigin(), 'manual');
   const generation = env.controller.getSwitchGeneration();
-  // Two tile failures: the controller falls back to OSM on its own.
+  // Threshold tile failures: the controller falls back to OSM on its own.
   const errors = env.providers.get('esri-imagery').errorEvent;
-  errors.raise();
-  errors.raise();
+  for (let i = 0; i < 16; i++) errors.raise();
   await settle();
   assert.equal(env.controller.getActiveId(), 'osm');
   assert.equal(env.controller.getSwitchGeneration(), generation + 1);

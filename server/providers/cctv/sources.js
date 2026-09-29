@@ -307,6 +307,32 @@ export async function loadCaltransSourcesFromOpenData() {
 }
 
 /**
+ * Opt-in switch for TfL JamCam video clips. Off unless CCTV_TFL_VIDEO_CLIPS is
+ * `true`/`1`/`yes`/`on`, so still images stay the default.
+ *
+ * @returns {boolean}
+ */
+export function tflVideoClipsEnabled() {
+  const raw = String(process.env.CCTV_TFL_VIDEO_CLIPS || '')
+    .trim()
+    .toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'yes' || raw === 'on';
+}
+
+/**
+ * TfL's official clip URL, pinned to the JamCam bucket and to `.mp4`.
+ *
+ * @param {unknown} videoUrl - `videoUrl` additional property from the API.
+ * @returns {string} The clip URL, or '' when it is missing or off-bucket.
+ */
+export function tflClipUrl(videoUrl) {
+  const url = String(videoUrl || '');
+  return url.startsWith(TFL_IMAGE_ORIGIN) && /\.mp4(?:\?|$)/i.test(url)
+    ? url
+    : '';
+}
+
+/**
  * Fetch TfL JamCams (London). Keyless: the optional TFL_APP_KEY only raises the
  * list-endpoint rate limit (frames come from TfL's public S3 bucket, which is not
  * rate-limited); the 15-min source cache keeps list hits far below anonymous
@@ -345,11 +371,9 @@ export async function loadTflSourcesFromOpenData() {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       const imageUrl = String(props.imageUrl || '');
       if (!imageUrl.startsWith(TFL_IMAGE_ORIGIN)) continue; // official-bucket pin
-      const videoUrl = String(props.videoUrl || '');
-      const clipUrl =
-        videoUrl.startsWith(TFL_IMAGE_ORIGIN) && /\.mp4(?:\?|$)/i.test(videoUrl)
-          ? videoUrl
-          : '';
+      // Stills first (upstream owner decision). CCTV_TFL_VIDEO_CLIPS=true opts
+      // into TfL's official short .mp4 clip; the still stays the snapshot.
+      const clipUrl = tflVideoClipsEnabled() ? tflClipUrl(props.videoUrl) : '';
 
       // "JamCams_00002.00865" → "tfl-00002.00865" (provider-stable id).
       const rawId = String(place?.id || '').replace(/^JamCams_/, '');
@@ -373,9 +397,13 @@ export async function loadTflSourcesFromOpenData() {
         rangeM: 145,
         mountHeightM: 8,
         groundElevationM: 15, // Thames-basin prior; one-shot snap corrects.
-        feedType: clipUrl ? 'mp4' : 'image',
+        feedType: clipUrl ? 'mp4' : 'image', // stills first unless opted in
         url: clipUrl || imageUrl,
         snapshotUrl: imageUrl,
+        // TfL publishes a short recorded .mp4 per JamCam. Kept separate from
+        // `url` so the 3D layer stays on stills, while the CCTV browser can
+        // offer the clip honestly labeled VIDEO CLIP (never LIVE).
+        clipUrl: tflClipUrl(props.videoUrl),
         sourceKind: 'tfl-open-data',
         license: 'Powered by TfL Open Data',
       });
@@ -938,7 +966,7 @@ export async function loadTxdotSourcesFromOpenData() {
       const resp = await fetch(TXDOT_CCTV_STATUS_URL(district), {
         headers: {
           Accept: 'application/json',
-          'User-Agent': 'gods-eye-view-cctv-proxy/1.0',
+          'User-Agent': 'earth-eye-cctv-proxy/1.0',
         },
         signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
       });
@@ -1377,7 +1405,7 @@ export async function loadNswSourcesFromOpenData() {
     const resp = await fetch(NSW_CAMERAS_URL, {
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'gods-eye-view-cctv-proxy/1.0',
+        'User-Agent': 'earth-eye-cctv-proxy/1.0',
       },
       signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
     });
@@ -1703,6 +1731,783 @@ export async function loadDelDOTSourcesFromOpenData() {
       '[CCTV] DelDOT source download error:',
       error?.message || error,
     );
+    return [];
+  }
+}
+
+
+const DEFAULT_SEATTLE_API =
+  'https://web.seattle.gov/Travelers/api/Map/Data?zoomId=13&type=2';
+const SEATTLE_IMAGE_BASE = 'https://www.seattle.gov/trafficcams/images/';
+const DEFAULT_SEATTLE_MAX = 120;
+const SEATTLE_CENTER = Object.freeze({ lat: 47.6062, lon: -122.3321 });
+
+/**
+ * Seattle SDOT / WSDOT traffic cameras from the public Travelers Map API.
+ * Still frames only. Pack is permission-pending (CCTV_SEATTLE_ENABLED=1).
+ */
+export async function loadSeattleSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_SEATTLE_API_URL || DEFAULT_SEATTLE_API;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] Seattle source download failed:', resp.status);
+      return [];
+    }
+    const payload = await resp.json();
+    const features = Array.isArray(payload?.Features) ? payload.Features : [];
+    const cameras = [];
+    for (const feat of features) {
+      const coords = feat?.PointCoordinate;
+      const lat = Number(coords?.[0]);
+      const lon = Number(coords?.[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      const cams = Array.isArray(feat?.Cameras) ? feat.Cameras : [];
+      for (const cam of cams) {
+        const id = String(cam?.Id || '').trim();
+        const file = String(cam?.ImageUrl || '').trim();
+        if (!id || !file) continue;
+        const kind = String(cam?.Type || 'sdot').toLowerCase();
+        cameras.push({
+          id: `seattle:${id}`,
+          name: String(cam?.Description || id).trim(),
+          city: 'Seattle',
+          cityId: 'seattle',
+          provider:
+            kind === 'wsdot'
+              ? 'Washington State DOT (via Seattle Travelers)'
+              : 'Seattle Department of Transportation',
+          lat,
+          lon,
+          headingDeg: 0,
+          headingConfidence: 'low',
+          pitchDeg: -18,
+          fovDeg: 50,
+          rangeM: 160,
+          mountHeightM: 8,
+          groundElevationM: 50,
+          feedType: 'image',
+          url: `${SEATTLE_IMAGE_BASE}${encodeURIComponent(file)}`,
+          snapshotUrl: `${SEATTLE_IMAGE_BASE}${encodeURIComponent(file)}`,
+          sourceKind: 'seattle-travelers',
+          license: 'Pending review — City of Seattle / WSDOT traffic camera still',
+        });
+      }
+    }
+    const unique = Array.from(
+      new Map(cameras.map((c) => [c.id, c])).values(),
+    );
+    const maxRaw = Number(process.env.CCTV_SEATTLE_MAX_SOURCES || DEFAULT_SEATTLE_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(300, Math.floor(maxRaw)))
+      : DEFAULT_SEATTLE_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [SEATTLE_CENTER]);
+    console.log(
+      `[CCTV] Loaded Seattle camera sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Seattle source load failed:', error?.message || error);
+    return [];
+  }
+}
+
+
+const DEFAULT_IOWA_API =
+  'https://services.arcgis.com/8lRhdTsQyJpO52F1/arcgis/rest/services/Traffic_Cameras_View/FeatureServer/0/query';
+const DEFAULT_IOWA_MAX = 120;
+const IOWA_CENTER = Object.freeze({ lat: 41.5868, lon: -93.625 });
+const IOWA_PAGE = 1000;
+
+/**
+ * Iowa DOT traffic / RWIS cameras from the public ArcGIS FeatureServer.
+ * Stills preferred; HLS VideoURL recorded when present. Permission-pending
+ * (CCTV_IOWA_ENABLED=1).
+ */
+export async function loadIowaSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_IOWA_API_URL || DEFAULT_IOWA_API;
+  try {
+    const cameras = [];
+    let offset = 0;
+    let more = true;
+    while (more) {
+      const url = new URL(endpoint);
+      url.searchParams.set('where', '1=1');
+      url.searchParams.set('outFields', '*');
+      url.searchParams.set('outSR', '4326');
+      url.searchParams.set('f', 'json');
+      url.searchParams.set('resultRecordCount', String(IOWA_PAGE));
+      url.searchParams.set('resultOffset', String(offset));
+      const resp = await fetch(url, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent':
+            'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+        },
+        signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+      });
+      if (!resp.ok) {
+        console.warn('[CCTV] Iowa source download failed:', resp.status);
+        break;
+      }
+      const payload = await resp.json();
+      const features = Array.isArray(payload?.features) ? payload.features : [];
+      for (const feat of features) {
+        const a = feat?.attributes || {};
+        const g = feat?.geometry || {};
+        const lat = Number(a.latitude ?? g.y);
+        const lon = Number(a.longitude ?? g.x);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const id = String(a.device_id || a.FID || '').trim();
+        const image = String(a.ImageURL || '').trim();
+        if (!id || !image) continue;
+        const video = String(a.VideoURL || '').trim();
+        const kind = String(a.Type || 'Iowa DOT').trim();
+        cameras.push({
+          id: `iowa:${id}`,
+          name: String(a.Desc_ || a.ImageName || id).trim(),
+          city: 'Iowa',
+          cityId: 'iowa',
+          provider: 'Iowa Department of Transportation',
+          lat,
+          lon,
+          headingDeg: 0,
+          headingConfidence: 'low',
+          pitchDeg: -18,
+          fovDeg: 50,
+          rangeM: 160,
+          mountHeightM: 8,
+          groundElevationM: 300,
+          feedType: 'image',
+          url: image,
+          snapshotUrl: image,
+          streamUrl: video || null,
+          sourceKind: 'iowa-dot-arcgis',
+          license:
+            'Pending review — CC BY 4.0 + Iowa DOT GIS Terms (traffic camera)',
+          meta: { org: a.ORG || null, type: kind || null },
+        });
+      }
+      more = Boolean(payload?.exceededTransferLimit) && features.length > 0;
+      offset += features.length;
+      if (offset > 5000) break;
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_IOWA_MAX_SOURCES || DEFAULT_IOWA_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(400, Math.floor(maxRaw)))
+      : DEFAULT_IOWA_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [IOWA_CENTER]);
+    console.log(
+      `[CCTV] Loaded Iowa camera sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Iowa source load failed:', error?.message || error);
+    return [];
+  }
+}
+
+
+const DEFAULT_ICELAND_API =
+  'https://gagnaveita.vegagerdin.is/api/vefmyndavelar2014_1';
+const DEFAULT_ICELAND_MAX = 80;
+const ICELAND_CENTER = Object.freeze({ lat: 64.1466, lon: -21.9426 });
+
+/**
+ * Vegagerðin Iceland road cameras (refreshed stills). Permission-pending
+ * (CCTV_ICELAND_ENABLED=1).
+ */
+export async function loadIcelandSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_ICELAND_API_URL || DEFAULT_ICELAND_API;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] Iceland source download failed:', resp.status);
+      return [];
+    }
+    const payload = await resp.json();
+    const rows = Array.isArray(payload) ? payload : [];
+    const cameras = [];
+    for (const row of rows) {
+      const lat = Number(row?.Breidd);
+      const lon = Number(row?.Lengd);
+      const url = String(row?.Slod || '').trim();
+      const id = String(row?.Maelist_nr || url || '').trim();
+      if (!id || !url || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      const name = [row?.Myndavel, row?.Skyring].filter(Boolean).join(' — ') || id;
+      cameras.push({
+        id: `iceland:${id}`,
+        name: String(name).trim(),
+        city: 'Iceland',
+        cityId: 'iceland',
+        provider: 'Vegagerðin (Icelandic Road and Coastal Administration)',
+        lat,
+        lon,
+        headingDeg: 0,
+        headingConfidence: 'low',
+        pitchDeg: -18,
+        fovDeg: 50,
+        rangeM: 160,
+        mountHeightM: 8,
+        groundElevationM: 100,
+        feedType: 'image',
+        url,
+        snapshotUrl: url,
+        sourceKind: 'vegagerdin-iceland',
+        license: 'Pending review — Vegagerðin public road camera still',
+      });
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_ICELAND_MAX_SOURCES || DEFAULT_ICELAND_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(300, Math.floor(maxRaw)))
+      : DEFAULT_ICELAND_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [ICELAND_CENTER]);
+    console.log(
+      `[CCTV] Loaded Iceland camera sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Iceland source load failed:', error?.message || error);
+    return [];
+  }
+}
+
+
+const DEFAULT_HK_LOCATIONS =
+  'https://static.data.gov.hk/td/traffic-snapshot-images/code/Traffic_Camera_Locations_En.xml';
+const DEFAULT_HK_MAX = 100;
+const HK_CENTER = Object.freeze({ lat: 22.3193, lon: 114.1694 });
+
+/**
+ * Hong Kong TD traffic snapshot stills. Locations XML + JPEG host.
+ * Permission-pending (CCTV_HONGKONG_ENABLED=1).
+ */
+export async function loadHongKongSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_HONGKONG_API_URL || DEFAULT_HK_LOCATIONS;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/xml,text/xml,*/*',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] Hong Kong source download failed:', resp.status);
+      return [];
+    }
+    const xml = await resp.text();
+    const cameras = [];
+    const blocks = xml.split(/<image\b/i).slice(1);
+    for (const block of blocks) {
+      const get = (tag) => {
+        const m = block.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'));
+        return m ? m[1].trim() : '';
+      };
+      const key = get('key');
+      const url = get('url');
+      const lat = Number(get('latitude'));
+      const lon = Number(get('longitude'));
+      if (!key || !url || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      cameras.push({
+        id: `hongkong:${key}`,
+        name: get('description') || key,
+        city: get('district') || get('region') || 'Hong Kong',
+        cityId: 'hongkong',
+        provider: 'Hong Kong Transport Department',
+        lat,
+        lon,
+        headingDeg: 0,
+        headingConfidence: 'low',
+        pitchDeg: -18,
+        fovDeg: 50,
+        rangeM: 160,
+        mountHeightM: 8,
+        groundElevationM: 20,
+        feedType: 'image',
+        url,
+        snapshotUrl: url,
+        sourceKind: 'hk-td-snapshot',
+        license: 'Pending review — DATA.GOV.HK / HK TD traffic snapshot',
+      });
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_HONGKONG_MAX_SOURCES || DEFAULT_HK_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(300, Math.floor(maxRaw)))
+      : DEFAULT_HK_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [HK_CENTER]);
+    console.log(
+      `[CCTV] Loaded Hong Kong camera sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Hong Kong source load failed:', error?.message || error);
+    return [];
+  }
+}
+
+
+const DEFAULT_QUEBEC_WFS =
+  'https://ws.mapserver.transports.gouv.qc.ca/swtq?service=wfs&version=2.0.0&request=getfeature&typename=ms:infos_cameras&outfile=Camera&srsname=EPSG:4326&outputformat=geojson';
+const QUEBEC_CLIP = (id) =>
+  `https://www.quebec511.info/Carte/Fenetres/camera.ashx?id=${encodeURIComponent(id)}&format=mp4`;
+const DEFAULT_QUEBEC_MAX = 80;
+const QUEBEC_CENTER = Object.freeze({ lat: 46.8139, lon: -71.208 });
+
+/**
+ * Québec 511 traffic cameras (CC BY 4.0 Données Québec). Short MP4 clips —
+ * never labeled LIVE. Permission-pending (CCTV_QUEBEC_ENABLED=1).
+ */
+export async function loadQuebecSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_QUEBEC_API_URL || DEFAULT_QUEBEC_WFS;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json,application/geo+json',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] Québec source download failed:', resp.status);
+      return [];
+    }
+    const payload = await resp.json();
+    const features = Array.isArray(payload?.features) ? payload.features : [];
+    const cameras = [];
+    for (const feat of features) {
+      const props = feat?.properties || {};
+      const coords = feat?.geometry?.coordinates;
+      const lon = Number(coords?.[0]);
+      const lat = Number(coords?.[1]);
+      const id = String(props.IDEcamera || feat?.id || '').trim();
+      if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      const name =
+        String(
+          props.DescriptionLocalisationEn ||
+            props.DescriptionLocalisationFr ||
+            id,
+        ).trim();
+      const clip = QUEBEC_CLIP(id);
+      cameras.push({
+        id: `quebec:${id}`,
+        name,
+        city: String(props.NomRegionDiffusion || 'Québec').trim(),
+        cityId: 'quebec',
+        provider:
+          'Ministère des Transports et de la Mobilité durable du Québec',
+        lat,
+        lon,
+        headingDeg: 0,
+        headingConfidence: 'low',
+        pitchDeg: -18,
+        fovDeg: 50,
+        rangeM: 160,
+        mountHeightM: 8,
+        groundElevationM: 50,
+        // Honest media kind: short looped clip, not a live stream.
+        feedType: 'mp4',
+        url: clip,
+        snapshotUrl: clip,
+        sourceKind: 'quebec-511',
+        license: 'CC BY 4.0 (Données Québec) — pending embed confirmation',
+        attribution:
+          'Source: Ministère des Transports et de la Mobilité durable du Québec — Québec 511 (CC BY 4.0)',
+        mediaKind: 'clip',
+      });
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_QUEBEC_MAX_SOURCES || DEFAULT_QUEBEC_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(300, Math.floor(maxRaw)))
+      : DEFAULT_QUEBEC_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [QUEBEC_CENTER]);
+    console.log(
+      `[CCTV] Loaded Québec camera sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Québec source load failed:', error?.message || error);
+    return [];
+  }
+}
+
+const DEFAULT_LAKECOUNTY_QUERY =
+  'https://services2.arcgis.com/aIrBD8yn1TDTEXoz/arcgis/rest/services/TrafficCamerasTM_Public/FeatureServer/0/query';
+const DEFAULT_LAKECOUNTY_MAX = 80;
+const LAKECOUNTY_CENTER = Object.freeze({ lat: 42.37, lon: -88.0 });
+
+/**
+ * Lake County (IL) PASSAGE stills via IDOT Illinois Gateway FeatureServer.
+ * Only rows whose SnapShot host is lakecountypassage.com (travelmidwest excluded).
+ */
+export async function loadLakeCountySourcesFromOpenData() {
+  const base = process.env.CCTV_LAKECOUNTY_API_URL || DEFAULT_LAKECOUNTY_QUERY;
+  try {
+    const cameras = [];
+    let offset = 0;
+    for (let page = 0; page < 8; page += 1) {
+      const url = new URL(base);
+      url.searchParams.set(
+        'where',
+        "SnapShot LIKE '%lakecountypassage.com%'",
+      );
+      url.searchParams.set('outFields', '*');
+      url.searchParams.set('returnGeometry', 'true');
+      url.searchParams.set('outSR', '4326');
+      url.searchParams.set('f', 'json');
+      url.searchParams.set('resultRecordCount', '500');
+      url.searchParams.set('resultOffset', String(offset));
+      const resp = await fetch(url.toString(), {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent':
+            'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+        },
+        signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+      });
+      if (!resp.ok) {
+        console.warn('[CCTV] Lake County page failed:', resp.status);
+        break;
+      }
+      const payload = await resp.json();
+      const features = Array.isArray(payload?.features) ? payload.features : [];
+      if (features.length === 0) break;
+      for (const feat of features) {
+        const a = feat?.attributes || {};
+        const snap = String(a.SnapShot || '').trim();
+        if (!snap.includes('lakecountypassage.com')) continue;
+        const lon = Number(feat?.geometry?.x ?? a.x);
+        const lat = Number(feat?.geometry?.y ?? a.y);
+        const id = String(a.OBJECTID || '').trim();
+        if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const headingRaw = String(a.CameraDirection || '').trim().toUpperCase();
+        const headingMap = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+        const headingDeg = headingMap[headingRaw] ?? 0;
+        cameras.push({
+          id: `lakecounty:${id}`,
+          name: String(a.CameraLocation || `Lake County ${id}`).trim(),
+          city: 'Lake County, IL',
+          cityId: 'lakecounty',
+          provider: 'Lake County PASSAGE / Illinois DOT',
+          lat,
+          lon,
+          headingDeg,
+          headingConfidence: headingMap[headingRaw] != null ? 'medium' : 'low',
+          pitchDeg: -18,
+          fovDeg: 50,
+          rangeM: 160,
+          mountHeightM: 8,
+          groundElevationM: 220,
+          feedType: 'image',
+          url: snap,
+          snapshotUrl: snap,
+          sourceKind: 'lake-county-passage',
+          license: 'CC BY-SA 2.0 (Illinois Gateway) — pending embed confirmation',
+          attribution:
+            'Illinois Department of Transportation — Illinois Gateway (CC BY-SA 2.0); images: Lake County PASSAGE',
+        });
+      }
+      offset += features.length;
+      if (!payload.exceededTransferLimit) break;
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_LAKECOUNTY_MAX_SOURCES || DEFAULT_LAKECOUNTY_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(300, Math.floor(maxRaw)))
+      : DEFAULT_LAKECOUNTY_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [LAKECOUNTY_CENTER]);
+    console.log(
+      `[CCTV] Loaded Lake County sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Lake County load failed:', error?.message || error);
+    return [];
+  }
+}
+
+const DEFAULT_SINGAPORE_API =
+  'https://api.data.gov.sg/v1/transport/traffic-images';
+const DEFAULT_SINGAPORE_MAX = 40;
+const SINGAPORE_CENTER = Object.freeze({ lat: 1.35, lon: 103.82 });
+
+/**
+ * Singapore LTA traffic images (data.gov.sg). Re-read API each refresh —
+ * image URLs are time-scoped. Singapore Open Data Licence v1.0.
+ */
+export async function loadSingaporeSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_SINGAPORE_API_URL || DEFAULT_SINGAPORE_API;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] Singapore source download failed:', resp.status);
+      return [];
+    }
+    const payload = await resp.json();
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const camerasPayload = items[0]?.cameras || [];
+    const cameras = [];
+    for (const cam of camerasPayload) {
+      const id = String(cam.camera_id || '').trim();
+      const lat = Number(cam.location?.latitude);
+      const lon = Number(cam.location?.longitude);
+      const image = String(cam.image || '').trim();
+      if (!id || !image || !Number.isFinite(lat) || !Number.isFinite(lon))
+        continue;
+      cameras.push({
+        id: `singapore:${id}`,
+        name: `Singapore LTA ${id}`,
+        city: 'Singapore',
+        cityId: 'singapore',
+        provider: 'Land Transport Authority (data.gov.sg)',
+        lat,
+        lon,
+        headingDeg: 0,
+        headingConfidence: 'low',
+        pitchDeg: -18,
+        fovDeg: 50,
+        rangeM: 160,
+        mountHeightM: 8,
+        groundElevationM: 15,
+        feedType: 'image',
+        url: image,
+        snapshotUrl: image,
+        sourceKind: 'singapore-lta',
+        observedAt: cam.timestamp || items[0]?.timestamp || null,
+        license: 'Singapore Open Data Licence v1.0',
+        attribution:
+          'Contains information from Traffic Images from data.gov.sg under the Singapore Open Data Licence v1.0',
+      });
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_SINGAPORE_MAX_SOURCES || DEFAULT_SINGAPORE_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(4, Math.min(200, Math.floor(maxRaw)))
+      : DEFAULT_SINGAPORE_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [SINGAPORE_CENTER]);
+    console.log(
+      `[CCTV] Loaded Singapore sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] Singapore load failed:', error?.message || error);
+    return [];
+  }
+}
+
+const DEFAULT_ALERTCAL_URL =
+  'https://cameras.alertcalifornia.org/public-camera-data/all_cameras-v3.json';
+const DEFAULT_ALERTCAL_MAX = 60;
+const ALERTCAL_CENTER = Object.freeze({ lat: 37.0, lon: -119.5 });
+
+/**
+ * ALERTCalifornia wildfire cameras (CC BY-NC-ND 4.0). Non-commercial pack.
+ * Full-frame stills only; credit "ALERTCalifornia | UC San Diego".
+ */
+export async function loadAlertCaliforniaSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_ALERTCALIFORNIA_API_URL || DEFAULT_ALERTCAL_URL;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] ALERTCalifornia download failed:', resp.status);
+      return [];
+    }
+    const payload = await resp.json();
+    const features = Array.isArray(payload?.features) ? payload.features : [];
+    const cameras = [];
+    for (const feat of features) {
+      const props = feat?.properties || {};
+      const coords = feat?.geometry?.coordinates;
+      const id = String(props.id || '').trim();
+      // Number(null) === 0 — reject missing coordinates explicitly.
+      if (
+        !id ||
+        !Array.isArray(coords) ||
+        coords[0] == null ||
+        coords[1] == null
+      )
+        continue;
+      const lon = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      const elev = Number(coords[2]);
+      const az = Number(props.az_current);
+      const frameUrl = `https://cameras.alertcalifornia.org/public-camera-data/${encodeURIComponent(id)}/latest-frame.jpg`;
+      cameras.push({
+        id: `alertcalifornia:${id}`,
+        name: String(props.name || id).trim(),
+        city: [props.county, props.state].filter(Boolean).join(', ') || 'California',
+        cityId: 'alertcalifornia',
+        provider: 'ALERTCalifornia (UC San Diego)',
+        lat,
+        lon,
+        headingDeg: Number.isFinite(az) ? az : 0,
+        headingConfidence: Number.isFinite(az) ? 'medium' : 'low',
+        pitchDeg: -12,
+        fovDeg: Number.isFinite(Number(props.fov)) ? Number(props.fov) : 50,
+        rangeM: 400,
+        mountHeightM: 12,
+        groundElevationM: Number.isFinite(elev) ? elev : 500,
+        feedType: 'image',
+        url: frameUrl,
+        snapshotUrl: frameUrl,
+        sourceKind: 'alertcalifornia',
+        license: 'CC BY-NC-ND 4.0 — non-commercial',
+        attribution: 'ALERTCalifornia | UC San Diego',
+        nonCommercial: true,
+      });
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_ALERTCALIFORNIA_MAX_SOURCES || DEFAULT_ALERTCAL_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(200, Math.floor(maxRaw)))
+      : DEFAULT_ALERTCAL_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [ALERTCAL_CENTER]);
+    console.log(
+      `[CCTV] Loaded ALERTCalifornia sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] ALERTCalifornia load failed:', error?.message || error);
+    return [];
+  }
+}
+
+const DEFAULT_HPWREN_SITES =
+  'https://www.hpwren.ucsd.edu/cameras/sites.js';
+const DEFAULT_HPWREN_MAX = 40;
+const HPWREN_CENTER = Object.freeze({ lat: 33.0, lon: -116.8 });
+
+/**
+ * Parse HPWREN sites.js (`var sites = { ... };`) into a plain object.
+ * @param {string} text
+ */
+export function parseHpwrenSitesJs(text) {
+  const m = String(text || '').match(/var\s+sites\s*=\s*(\{[\s\S]*\})\s*;?\s*$/m)
+    || String(text || '').match(/sites\s*=\s*(\{[\s\S]*\})/);
+  if (!m) return null;
+  try {
+    // sites.js is JSON-like object literal; wrap as JSON by quoting keys if needed.
+    // Actual file uses double-quoted keys already.
+    return JSON.parse(m[1]);
+  } catch {
+    try {
+      // eslint-disable-next-line no-new-func
+      return Function(`"use strict"; return (${m[1]});`)();
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * HPWREN research cameras (CC BY-NC-ND 4.0). Non-commercial. Prefer RTS 640px.
+ */
+export async function loadHpwrenSourcesFromOpenData() {
+  const endpoint = process.env.CCTV_HPWREN_API_URL || DEFAULT_HPWREN_SITES;
+  try {
+    const resp = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/javascript,text/plain,*/*',
+        'User-Agent':
+          'earth-eye-cctv/1.0 (private hosted instance; +https://eartheye.us)',
+      },
+      signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn('[CCTV] HPWREN sites download failed:', resp.status);
+      return [];
+    }
+    const text = await resp.text();
+    const sites = parseHpwrenSitesJs(text);
+    if (!sites || typeof sites !== 'object') {
+      console.warn('[CCTV] HPWREN sites.js parse failed');
+      return [];
+    }
+    const cameras = [];
+    for (const [siteKey, site] of Object.entries(sites)) {
+      const lat = Number(site?.lat);
+      const lon = Number(site?.long ?? site?.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      const elev = Number(site?.elev);
+      const cams = site?.cams && typeof site.cams === 'object' ? site.cams : {};
+      for (const [camKey, cam] of Object.entries(cams)) {
+        const id = String(camKey || '').trim();
+        if (!id) continue;
+        const thumb = `https://cdn.hpwren.ucsd.edu/RTS/${encodeURIComponent(id)}-640.jpg`;
+        cameras.push({
+          id: `hpwren:${id}`,
+          name: String(cam?.name || site?.name || id).trim(),
+          city: String(site?.name || siteKey).trim(),
+          cityId: 'hpwren',
+          provider: 'HPWREN (UC San Diego)',
+          lat,
+          lon,
+          headingDeg: 0,
+          headingConfidence: 'low',
+          pitchDeg: -10,
+          fovDeg: 50,
+          rangeM: 500,
+          mountHeightM: 12,
+          groundElevationM: Number.isFinite(elev) ? elev : 800,
+          feedType: 'image',
+          url: thumb,
+          snapshotUrl: thumb,
+          sourceKind: 'hpwren',
+          license: 'CC BY-NC-ND 4.0 — non-commercial',
+          attribution:
+            'HPWREN — High Performance Wireless Research & Education Network, UC San Diego (hpwren.ucsd.edu)',
+          nonCommercial: true,
+        });
+      }
+    }
+    const unique = Array.from(new Map(cameras.map((c) => [c.id, c])).values());
+    const maxRaw = Number(process.env.CCTV_HPWREN_MAX_SOURCES || DEFAULT_HPWREN_MAX);
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(200, Math.floor(maxRaw)))
+      : DEFAULT_HPWREN_MAX;
+    const prioritized = prioritizeSources(unique, maxCount, [HPWREN_CENTER]);
+    console.log(
+      `[CCTV] Loaded HPWREN sources: ${unique.length} (using ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn('[CCTV] HPWREN load failed:', error?.message || error);
     return [];
   }
 }

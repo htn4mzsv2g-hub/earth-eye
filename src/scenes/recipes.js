@@ -4,6 +4,7 @@
  */
 
 import { expandNepalEvidencePack } from './nepalEvidencePack.js';
+import { isDevOnlySceneBlocked } from '../policy/devFlags.js';
 
 const BHOTE_KOSHI_NEPAL_BASE_RECIPE = Object.freeze({
   id: 'bhote-koshi-nepal-evidence-pack',
@@ -966,7 +967,11 @@ const PUBLIC_SCENE_RECIPES = [
 
 /** Build the recipe list without mutating stored user-authored projects. */
 export function createSceneRecipes({ localDemoRecipes = EVENT_RECIPES } = {}) {
-  return [...localDemoRecipes, ...PUBLIC_SCENE_RECIPES];
+  // Earth Eye: City Overload and Omniscience Pullback exist only to show the
+  // simulated traffic layer, so they are dev-only (never in production).
+  return [...localDemoRecipes, ...PUBLIC_SCENE_RECIPES].filter(
+    (recipe) => !isDevOnlySceneBlocked(recipe.id),
+  );
 }
 
 export const SCENE_RECIPES = createSceneRecipes();

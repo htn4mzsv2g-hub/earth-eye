@@ -120,6 +120,108 @@ export function firmsProxy() {
     return { at: now, sources, fires };
   }
 
+  // ---------------------------------------------------------------------------
+  // Earth Eye: keyless fallback. NASA FIRMS also publishes rolling "last 24h"
+  // CSV files that need no MAP_KEY (firms.modaps.eosdis.nasa.gov/data/
+  // active_fire/...). They are coarser than the keyed area API (MODIS 1 km plus
+  // one VIIRS satellite) and are served with `fallback: true` so the layer chip
+  // reads FALLBACK, never LIVE. Same cache discipline: 30 min TTL,
+  // single-flight, serve-stale-on-failure, separate disk file.
+  // ---------------------------------------------------------------------------
+  const KEYLESS_SOURCES = [
+    {
+      source: 'MODIS_C6_1_Global_24h (keyless public file)',
+      url: 'https://firms.modaps.eosdis.nasa.gov/data/active_fire/modis-c6.1/csv/MODIS_C6_1_Global_24h.csv',
+    },
+    {
+      source: 'J1_VIIRS_C2_Global_24h (keyless public file)',
+      url: 'https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_Global_24h.csv',
+    },
+  ];
+  const KEYLESS_CACHE_PATH = path.join(CACHE_DIR, 'firms-keyless.json');
+  let keylessMem = null;
+  let keylessDiskChecked = false;
+  let keylessInflight = null;
+
+  async function refreshKeyless() {
+    const now = Date.now();
+    const sources = [];
+    const fires = [];
+    for (const { source, url } of KEYLESS_SOURCES) {
+      try {
+        const res = await fetch(url, {
+          signal: AbortSignal.timeout(60_000),
+          headers: {
+            'User-Agent':
+              'earth-eye-firms-proxy/1.0 (private hosted instance; +https://eartheye.us)',
+          },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const records = parseFirmsCsv(await res.text());
+        if (records === null) throw new Error('non-CSV upstream response');
+        const recent = filterTrailing24h(records, now);
+        for (const record of recent) fires.push(record);
+        sources.push({ source, count: recent.length, ok: true });
+      } catch (err) {
+        console.warn(
+          `[firms-proxy] keyless ${source} failed:`,
+          err?.message || err,
+        );
+        sources.push({ source, count: 0, ok: false });
+      }
+    }
+    if (!sources.some((s) => s.ok))
+      throw new Error('all keyless FIRMS files failed');
+    return { at: now, sources, fires };
+  }
+
+  async function keylessSnapshot() {
+    if (!keylessDiskChecked) {
+      keylessDiskChecked = true;
+      try {
+        const parsed = JSON.parse(
+          await fsp.readFile(KEYLESS_CACHE_PATH, 'utf8'),
+        );
+        if (Number.isFinite(parsed?.at) && Array.isArray(parsed?.fires))
+          keylessMem = parsed;
+      } catch {
+        /* no keyless cache yet */
+      }
+    }
+    const entry = keylessMem;
+    if (entry && Date.now() - entry.at < TTL_MS) return { entry, stale: false };
+    if (!keylessInflight) {
+      keylessInflight = refreshKeyless()
+        .then(async (fresh) => {
+          keylessMem = fresh;
+          try {
+            await fsp.mkdir(CACHE_DIR, { recursive: true });
+            await fsp.writeFile(
+              KEYLESS_CACHE_PATH,
+              JSON.stringify(fresh),
+              'utf8',
+            );
+          } catch {
+            /* cache write is best effort */
+          }
+          return fresh;
+        })
+        .catch((err) => {
+          console.warn(
+            `[firms-proxy] keyless refresh failed (${err?.message || err})`,
+          );
+          return null;
+        })
+        .finally(() => {
+          keylessInflight = null;
+        });
+    }
+    const fresh = await keylessInflight;
+    if (fresh) return { entry: fresh, stale: false };
+    if (entry) return { entry, stale: true };
+    return null;
+  }
+
   /**
    * Cache entry → response payload. Fires are RE-filtered to the trailing
    * 24 h at serve time so a stale cache never serves >24h-old detections.
@@ -213,7 +315,19 @@ export function firmsProxy() {
         }
 
         if (!key) {
-          sendJson(503, { error: 'no_key' });
+          // Earth Eye: keyless public 24h files, labelled as a fallback.
+          const keyless = await keylessSnapshot();
+          if (!keyless) {
+            sendJson(503, { error: 'no_key' });
+            return;
+          }
+          sendJson(200, {
+            ...buildPayload(keyless.entry, keyless.stale),
+            fallback: true,
+            keyless: true,
+            fallbackLabel:
+              'NASA FIRMS public 24h files (keyless, coarser than the keyed API)',
+          });
           return;
         }
 

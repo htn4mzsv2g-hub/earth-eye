@@ -46,6 +46,26 @@ const exceededTransferLimit = (payload) =>
 
 const MIB = 1024 * 1024;
 
+/** Parse west,south,east,north with a strict local-view span. */
+export function parseFirePerimeterBbox(value) {
+  if (value == null || value === '') return null;
+  const parts = String(value).split(',').map(Number);
+  if (parts.length !== 4 || !parts.every(Number.isFinite)) return false;
+  const [west, south, east, north] = parts;
+  if (
+    west < -180 ||
+    east > 180 ||
+    south < -90 ||
+    north > 90 ||
+    east <= west ||
+    north <= south ||
+    east - west > 12 ||
+    north - south > 12
+  )
+    return false;
+  return { west, south, east, north };
+}
+
 /** Fixed-origin, bounded WFIGS and InciWeb routes for dev and preview. */
 export function firePerimetersProxy({
   fetchImpl = (...args) => globalThis.fetch(...args),
@@ -70,11 +90,19 @@ export function firePerimetersProxy({
     return readResponseJsonCapped(response, cap, signal);
   }
 
-  async function fetchPerimeters() {
+  async function fetchPerimeters(bbox = null) {
     const features = [];
+    const scopedUrl = bbox
+      ? `${API_URL}&${new URLSearchParams({
+          geometry: `${bbox.west},${bbox.south},${bbox.east},${bbox.north}`,
+          geometryType: 'esriGeometryEnvelope',
+          inSR: '4326',
+          spatialRel: 'esriSpatialRelIntersects',
+        })}`
+      : API_URL;
     for (let page = 0; page < MAX_PAGES; page++) {
       const url =
-        page === 0 ? API_URL : `${API_URL}&resultOffset=${features.length}`;
+        page === 0 ? scopedUrl : `${scopedUrl}&resultOffset=${features.length}`;
       const payload = await upstream(url, 16 * MIB, 30_000);
       if (!Array.isArray(payload?.features))
         throw new Error('invalid_snapshot');
@@ -183,15 +211,23 @@ export function firePerimetersProxy({
       res.end(JSON.stringify(value));
     };
     if (req.method !== 'GET') return json(405, { error: 'method_not_allowed' });
-    const path = (req.url || '/').split('?')[0];
+    const incoming = new URL(req.url || '/', 'http://local');
+    const path = incoming.pathname;
     let key,
       ttl,
       load,
       store = cache;
     if (path === '/' || path === '') {
-      key = 'perimeters';
+      const bbox = parseFirePerimeterBbox(incoming.searchParams.get('bbox'));
+      if (bbox === false) return json(400, { error: 'invalid_bbox' });
+      const bboxKey = bbox
+        ? [bbox.west, bbox.south, bbox.east, bbox.north]
+            .map((v) => v.toFixed(2))
+            .join(',')
+        : 'global';
+      key = `perimeters:${bboxKey}`;
       ttl = 300_000;
-      load = fetchPerimeters;
+      load = () => fetchPerimeters(bbox);
     } else if (path === '/inciweb/index') {
       key = 'index';
       ttl = 3_600_000;
@@ -210,7 +246,9 @@ export function firePerimetersProxy({
       const { value, stale } = await acquire(key, ttl, load, store);
       json(
         200,
-        key === 'perimeters' && stale ? { ...value, stale: true } : value,
+        key.startsWith('perimeters:') && stale
+          ? { ...value, stale: true }
+          : value,
         stale,
       );
     } catch (error) {

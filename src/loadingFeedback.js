@@ -5,6 +5,10 @@ export const LOADING_TERMINAL_DWELL_MS = 2200;
 export const LOADING_FAILURE_DWELL_MS = 5000;
 export const LOADING_LONG_THRESHOLD_MS = 30000;
 export const TRAFFIC_SYNC_CONFIRM_MS = 1500;
+/** Max time the traffic chip may spin before forcing a truthful terminal. */
+export const TRAFFIC_SYNC_MAX_BUSY_MS = 45000;
+/** CCTV frames chip: max busy before forcing a terminal. */
+export const CCTV_SYNC_MAX_BUSY_MS = 45000;
 /** Layer statuses that are user guidance, not feed faults (see manager.js layerFeedState). */
 export const GUIDANCE_STATUSES = Object.freeze(['zoom-in', 'empty', 'idle']);
 
@@ -206,9 +210,43 @@ export function createTrafficSyncFeedbackState() {
     busy: false,
     visible: false,
     confirmationUntil: 0,
+    busyStartedAt: 0,
     label: '',
     progressText: '',
+    terminal: null,
   };
+}
+
+/**
+ * Map traffic stats + labels onto one honest terminal chip string.
+ * Never invents activity — only describes configured/key/coverage/health.
+ * @param {object} stats
+ * @returns {string}
+ */
+export function trafficSyncTerminalLabel(stats = {}) {
+  const label = String(stats.phaseLabel || stats.loadingLabel || '').trim();
+  const upper = label.toUpperCase();
+  const error = String(stats.error || stats.lastError || '').trim();
+  const cov = Number(stats.flowCoveragePct);
+  if (/NEEDS KEY|NOT SET|ADD TOMTOM/i.test(upper) || stats.keyRequired === true)
+    return label || 'NEEDS KEY';
+  if (
+    stats.unavailable === true ||
+    /UNAVAILABLE|OFFLINE|UNREACHABLE|REFUSED/i.test(upper + ' ' + error)
+  )
+    return label || 'OFFLINE';
+  if (error || stats.degraded === true || /^SIMULATED —/i.test(label))
+    return label || 'DEGRADED';
+  if (Number.isFinite(cov) && cov <= 0 && /LIVE|TOMTOM|FLOW/i.test(upper))
+    return label || 'NO COVERAGE';
+  if (/NO DATA|EMPTY|NO ROADS/i.test(upper)) return label || 'NO DATA';
+  if (label) {
+    // Settled live/sim labels already carry the honest mode — keep them for the flash.
+    if (/^LIVE\b/i.test(label) || /READY/i.test(upper)) return label;
+    if (/NEEDS KEY/i.test(upper)) return label;
+    return label;
+  }
+  return 'READY';
 }
 
 /**
@@ -230,17 +268,30 @@ export function reduceTrafficSyncFeedback(
     : stats.loading
       ? 1
       : 100;
-  const busy =
+  const rawBusy =
     stats.loading === true ||
     stats.worldJumping === true ||
     (hasProgress && (progressPct < 100 || (stats.prewarmQueueDepth ?? 0) > 0));
   const label = String(stats.phaseLabel || stats.loadingLabel || '').trim();
+  // busyStartedAt may be 0 (first sample at t=0) — treat finite as set.
+  const busyStartedAt = rawBusy
+    ? state.busy && Number.isFinite(state.busyStartedAt)
+      ? state.busyStartedAt
+      : now
+    : 0;
+  const timedOut =
+    rawBusy &&
+    Number.isFinite(busyStartedAt) &&
+    now - busyStartedAt >= TRAFFIC_SYNC_MAX_BUSY_MS;
+  const busy = rawBusy && !timedOut;
 
   if (busy) {
     return {
       busy: true,
       visible: true,
       confirmationUntil: 0,
+      busyStartedAt,
+      terminal: null,
       // Neutral default: the layer always supplies its own LIVE/SIMULATED
       // label, and a fallback string must never claim a live feed on a
       // keyless build.
@@ -249,18 +300,26 @@ export function reduceTrafficSyncFeedback(
     };
   }
 
+  const terminalLabel = trafficSyncTerminalLabel(stats);
   const existingConfirmation =
     state.confirmationUntil > now ? state.confirmationUntil : 0;
+  // Only start a new confirmation when leaving busy / force-show / timeout —
+  // never re-arm from a prior terminal (that left chips permanently visible).
+  const shouldConfirm = state.busy || forceShow || timedOut;
   const confirmationUntil =
-    existingConfirmation ||
-    (state.busy || forceShow ? now + TRAFFIC_SYNC_CONFIRM_MS : 0);
+    existingConfirmation || (shouldConfirm ? now + TRAFFIC_SYNC_CONFIRM_MS : 0);
+  const flashLabel = timedOut || state.busy || forceShow ? terminalLabel : label;
   const visible =
-    confirmationUntil > now && progressPct >= 100 && Boolean(label);
+    confirmationUntil > now &&
+    (progressPct >= 100 || timedOut || !rawBusy) &&
+    Boolean(flashLabel);
   return {
     busy: false,
     visible,
     confirmationUntil: visible ? confirmationUntil : 0,
-    label: visible ? label : '',
+    busyStartedAt: 0,
+    terminal: visible ? flashLabel : null,
+    label: visible ? flashLabel : '',
     // The settled flash carries NO progress number. A settled chip is 100% by
     // definition — the value never varied — and printing it beside a label
     // that already ends in a real measurement produced the self-contradicting
@@ -450,6 +509,25 @@ export function presentLoadingFeedback(state, summary, nowMs) {
     active[0].installationRetry &&
     !summary.disabling
   ) {
+    // Event marker detail must win over ambient Overpass fetches.
+    let eventSelected = false;
+    try {
+      const selectedId = globalThis.window?.__gevContextStore?.selectedEntityId;
+      eventSelected =
+        typeof selectedId === 'string' &&
+        /^(weather-cyclones|local-firms|earthquakes|fire-perimeters):/.test(
+          selectedId,
+        );
+    } catch {
+      eventSelected = false;
+    }
+    if (eventSelected) {
+      return {
+        state: 'loading',
+        label: 'EVENT DETAIL',
+        detail: 'Mapped sites still loading in background',
+      };
+    }
     return {
       state: 'loading',
       label: active[0].installationRetry.retrying

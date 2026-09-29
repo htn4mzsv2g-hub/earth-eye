@@ -6,6 +6,7 @@ import {
   degreesLong,
   degreesLat,
   twoline2satrec,
+  json2satrec,
 } from 'satellite.js';
 import { findNextSatellitePass } from '../../data/satellitePass.js';
 import { ORBIT_PATH_STEPS, ISS_NORAD } from './policy.js';
@@ -57,6 +58,55 @@ export function createOrbits({ state: layerState, services, parts, source }) {
       }
     }
     return result;
+  }
+
+  /**
+   * Parse CelesTrak GP/OMM JSON into catalog entries with satrec + element epoch.
+   * Never invents objects when the body is empty or malformed.
+   */
+  function parseOmm(text) {
+    let rows;
+    try {
+      rows = JSON.parse(text);
+    } catch {
+      return [];
+    }
+    if (!Array.isArray(rows)) return [];
+    const result = [];
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      try {
+        const satrec = json2satrec(row);
+        if (!satrec || satrec.error !== 0) continue;
+        const name = String(
+          row.OBJECT_NAME || row.object_name || satrec.satnum || '',
+        ).trim();
+        const epochMs = (() => {
+          const e = row.EPOCH || row.epoch;
+          if (!e) return null;
+          const t = Date.parse(String(e).endsWith('Z') ? e : `${e}Z`);
+          return Number.isFinite(t) ? t : null;
+        })();
+        result.push({
+          name: name || String(satrec.satnum),
+          satrec,
+          noradId: Number(satrec.satnum),
+          epochMs,
+          format: 'omm',
+        });
+      } catch {
+        /* quarantine malformed OMM row */
+      }
+    }
+    return result;
+  }
+
+  /** Auto-detect OMM JSON vs TLE text (AMSAT fallback). */
+  function parseCatalog(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return [];
+    if (raw.startsWith('[') || raw.startsWith('{')) return parseOmm(raw);
+    return parseTLE(raw).map((e) => ({ ...e, format: 'tle' }));
   }
 
   /**
@@ -388,6 +438,8 @@ export function createOrbits({ state: layerState, services, parts, source }) {
   return {
     orbitFrameModelMatrix,
     parseTLE,
+    parseOmm,
+    parseCatalog,
     propagatePosition,
     orbitalPeriodSeconds,
     computeOrbitPath,

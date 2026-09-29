@@ -26,3 +26,25 @@ export function normalizeFeedType(value) {
 export function isVideoFeedType(feedType) {
   return feedType === 'mp4' || feedType === 'webm' || feedType === 'hls';
 }
+
+/** Honest medium labels shown next to a camera's source-type tag. */
+export const CCTV_MEDIUM = Object.freeze({
+  still: 'STILL IMAGE ONLY',
+  clip: 'VIDEO CLIP',
+  live: 'LIVE VIDEO',
+});
+
+/**
+ * Say what the viewer is actually looking at: a refreshed still frame, a
+ * recorded clip (mp4/webm) or a live stream (HLS). `isVideo` is the resolved
+ * playback state; a video source that fell back to its snapshot is a still.
+ *
+ * @param {{feedType?: string, isVideo?: boolean}} camera
+ * @returns {string} One of the CCTV_MEDIUM labels.
+ */
+export function cctvMediumLabel(camera) {
+  const feedType = normalizeFeedType(camera?.feedType);
+  const video = camera?.isVideo ?? isVideoFeedType(feedType);
+  if (!video || !isVideoFeedType(feedType)) return CCTV_MEDIUM.still;
+  return feedType === 'hls' ? CCTV_MEDIUM.live : CCTV_MEDIUM.clip;
+}

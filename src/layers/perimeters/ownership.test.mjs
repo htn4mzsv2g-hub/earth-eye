@@ -20,6 +20,14 @@ function harness(
   const owners = new Map();
   const opened = [];
   const viewer = {
+    camera: {
+      computeViewRectangle: () => ({
+        west: (-109 * Math.PI) / 180,
+        south: (34 * Math.PI) / 180,
+        east: (-107 * Math.PI) / 180,
+        north: (36 * Math.PI) / 180,
+      }),
+    },
     scene: { pick },
     dataSources: {
       add(value) {
@@ -339,6 +347,14 @@ test('a hanging InciWeb index fetch never blocks the perimeter refresh', async (
   hanging.layer.destroy(hanging.viewer);
   const sources = [];
   const viewer = {
+    camera: {
+      computeViewRectangle: () => ({
+        west: (-109 * Math.PI) / 180,
+        south: (34 * Math.PI) / 180,
+        east: (-107 * Math.PI) / 180,
+        north: (36 * Math.PI) / 180,
+      }),
+    },
     scene: { pick: () => null },
     dataSources: {
       add: (v) => sources.push(v),
@@ -406,6 +422,14 @@ test('an InciWeb outage never breaks the perimeter refresh', async () => {
     openExternal: () => {},
   });
   const viewer = {
+    camera: {
+      computeViewRectangle: () => ({
+        west: (-109 * Math.PI) / 180,
+        south: (34 * Math.PI) / 180,
+        east: (-107 * Math.PI) / 180,
+        north: (36 * Math.PI) / 180,
+      }),
+    },
     scene: { pick: () => null },
     dataSources: { add() {}, remove() {} },
   };

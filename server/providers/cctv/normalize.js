@@ -500,6 +500,9 @@ export function normalizeSourceItem(item) {
     feedType: normalizeFeedType(item.feedType || item.type || ''),
     url: typeof item.url === 'string' ? item.url : '',
     snapshotUrl: typeof item.snapshotUrl === 'string' ? item.snapshotUrl : '',
+    // A provider-published recorded clip (TfL JamCam .mp4). Server-side only;
+    // the public catalog exposes a /api/cctv/clip/:id path instead.
+    clipUrl: typeof item.clipUrl === 'string' ? item.clipUrl : '',
     license: String(item.license || item.licenseNote || ''),
     // Per-camera attribution for feeds a partner supplies inside a pack
     // (DriveBC: TransLink, city cameras). Shown beside the provider.

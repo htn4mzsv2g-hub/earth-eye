@@ -486,6 +486,7 @@ export const LEGACY_LAYER_STATE_TOKENS = Object.freeze({
   'weather-radar': 'v',
   'weather-satellite': 'o',
   wind: 'k',
+  'weather-alerts': '0',
 });
 
 /**
@@ -644,6 +645,7 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: 'y',
     disposition: 'enabled-only',
   }),
+  Object.freeze({ id: 'weather-alerts', token: '0', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'weather-lightning',
     token: 'l',

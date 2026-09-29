@@ -54,7 +54,9 @@ import {
   presentLoadingFeedback,
   reduceLoadingFeedback,
   reduceTrafficSyncFeedback,
+  trafficSyncTerminalLabel,
   TRAFFIC_SYNC_CONFIRM_MS,
+  TRAFFIC_SYNC_MAX_BUSY_MS,
 } from './loadingFeedback.js';
 
 test('universal status notices reuse the standard failure dwell', () => {
@@ -740,4 +742,35 @@ test('ALPR retry success does not inherit its prior error, including turning the
   const stopping = normalizeLayerLoading({ ...camera({ status: 'unavailable', error: 'Old failure' }), lifecycleState: 'disabling' });
   assert.equal(stopping.error, null);
   assert.equal(stopping.unavailable, false);
+});
+
+test('traffic sync forces a terminal after max busy — never spins forever', () => {
+  let state = createTrafficSyncFeedbackState();
+  const busy = {
+    enabled: true,
+    stats: { loading: true, loadingLabel: '' },
+  };
+  state = reduceTrafficSyncFeedback(state, busy, 0);
+  assert.equal(state.busy, true);
+  assert.equal(state.label, 'syncing road network');
+  state = reduceTrafficSyncFeedback(state, busy, TRAFFIC_SYNC_MAX_BUSY_MS + 1);
+  assert.equal(state.busy, false);
+  assert.equal(state.visible, true);
+  assert.ok(state.label, 'timed-out busy must flash a terminal label');
+  assert.notEqual(state.label, 'syncing road network');
+});
+
+test('trafficSyncTerminalLabel maps keyless / coverage / errors honestly', () => {
+  assert.match(
+    trafficSyncTerminalLabel({ loadingLabel: 'NEEDS KEY — TomTom for road conditions (no fake cars)' }),
+    /NEEDS KEY/,
+  );
+  assert.match(
+    trafficSyncTerminalLabel({ loadingLabel: 'LIVE · TomTom flow · 0% cov', flowCoveragePct: 0 }),
+    /LIVE|NO COVERAGE|0%/,
+  );
+  assert.match(
+    trafficSyncTerminalLabel({ error: 'TomTom flow unavailable', loadingLabel: 'SIMULATED — TomTom flow unavailable' }),
+    /SIMULATED|DEGRADED|unavailable/i,
+  );
 });

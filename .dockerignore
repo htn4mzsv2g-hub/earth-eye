@@ -1,0 +1,42 @@
+# Secrets: never send credential files to a builder.
+.env
+.env.*
+!.env.example
+*.pem
+*.crt
+*.key
+fly-api-token*
+
+# Rebuilt inside the image
+node_modules
+dist
+
+# Local state, caches, logs and evidence
+.git
+.github
+.agents
+.gev-cache
+.gev-logs
+.vite
+.vite-*
+screenshots
+qa-shots
+output
+coverage
+3d-models
+pinokio/ENVIRONMENT
+pinokio/.installed
+*.log
+.DS_Store
+.gstack
+
+# Deployment metadata that the image does not need
+Dockerfile
+.dockerignore
+fly.toml
+
+# Local scratch space
+.probe
+
+# Temporary reviewer credentials
+.reviewer-cred.local

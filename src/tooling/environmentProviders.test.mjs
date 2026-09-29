@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fsp } from 'node:fs';
-import { terrainHeightsProxy } from 'gods-eye-view/server/providers/terrain';
-import { tomtomProxy } from 'gods-eye-view/server/providers/traffic';
-import { firmsProxy } from 'gods-eye-view/server/providers/firms';
-import { gbfsProxy } from 'gods-eye-view/server/providers/gbfs';
+import { terrainHeightsProxy } from 'atlas-eye/server/providers/terrain';
+import { tomtomProxy } from 'atlas-eye/server/providers/traffic';
+import { firmsProxy } from 'atlas-eye/server/providers/firms';
+import { gbfsProxy } from 'atlas-eye/server/providers/gbfs';
 import { localProviderPlugins } from '../../server/providers/local.js';
 
 function install(plugin) {
@@ -189,9 +189,13 @@ test('FIRMS retains a large successful source during partial failure and filters
       : new Response('offline', { status: 503 });
   });
   const request = install(firmsProxy());
+  // Earth Eye: without a key the proxy tries NASA's two keyless public 24h
+  // files (both offline in this fixture), so the request is still a 503 but
+  // two upstream calls were made. The keyed path below is unchanged upstream.
   assert.equal((await request()).status, 503);
   assert.equal(json(await request('/status')).hasKey, false);
-  assert.equal(calls, 0);
+  assert.equal(calls, 2);
+  calls = 0;
   process.env.FIRMS_MAP_KEY = 'fixture-key';
   const first = json(await request());
   assert.equal(first.count, 130001);

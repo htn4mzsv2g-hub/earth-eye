@@ -10,6 +10,7 @@ import {
   inciwebNodeId,
   isCurrentPublication,
 } from './inciweb.js';
+import { requestEventDetail } from '../../data/eventDetail.js';
 export { normalizeFirePerimeterSnapshot } from './records.js';
 export { createWfigsPerimeterSource } from './source.js';
 export * from './cards.js';
@@ -33,6 +34,27 @@ const CARD_HOST_OPTIONS = Object.freeze({
 // 5-minute perimeter cadence would hammer a public .gov endpoint for ~200 KB
 // of near-identical bytes.
 const INCIWEB_INDEX_TTL_MS = 6 * 3600000;
+
+/** Return a bounded, non-dateline view rectangle for the WFIGS proxy. */
+export function firePerimeterViewportBbox(viewer) {
+  let rectangle = null;
+  try {
+    rectangle = viewer?.camera?.computeViewRectangle?.(Cesium.Ellipsoid.WGS84);
+  } catch {
+    rectangle = null;
+  }
+  if (!rectangle) return null;
+  const west = Cesium.Math.toDegrees(rectangle.west);
+  const south = Cesium.Math.toDegrees(rectangle.south);
+  const east = Cesium.Math.toDegrees(rectangle.east);
+  const north = Cesium.Math.toDegrees(rectangle.north);
+  if (![west, south, east, north].every(Number.isFinite)) return null;
+  if (east <= west || north <= south) return null;
+  // Server accepts at most a 12° span; global/horizon views deliberately skip
+  // perimeter auto-fetch rather than falling back to a nationwide payload.
+  if (east - west > 12 || north - south > 12) return null;
+  return { west, south, east, north };
+}
 
 /** Own one fire-perimeter display, its refresh lifecycle, and click selection. */
 export function createFirePerimetersLayer({
@@ -208,6 +230,7 @@ export function createFirePerimetersLayer({
         abortLinkVerification();
         _selectedId = incidentId;
         publishSelectedCard();
+        requestEventDetail('fire-perimeters', { eventId: incidentId });
         return;
       }
       // A pick that belongs to a sibling layer (e.g. an aircraft) is not
@@ -279,14 +302,24 @@ export function createFirePerimetersLayer({
       clearSelection();
     },
 
-    async update() {
+    async update(viewer = _viewer) {
       if (!_enabled || !_dataSource) return false;
       _request?.abort();
       const request = new AbortController();
       _request = request;
       refreshInciwebIndex(request.signal);
       try {
-        const rows = await source.getSnapshot({ signal: request.signal });
+        const bbox = firePerimeterViewportBbox(viewer);
+        if (!bbox) {
+          _count = 0;
+          _lastUpdate = Date.now();
+          _lastError = null;
+          return true;
+        }
+        const rows = await source.getSnapshot({
+          signal: request.signal,
+          bbox,
+        });
         if (request.signal.aborted || _request !== request || !_enabled)
           return false;
 

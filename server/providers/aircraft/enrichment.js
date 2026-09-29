@@ -2,14 +2,16 @@ import path from 'node:path';
 import { promises as fsp } from 'node:fs';
 /**
  * adsbdb.com enrichment proxy: callsign → route (airline + origin/destination
- * airports) and hex → aircraft type/registration. Free community API — cached
- * aggressively: ONE upstream request per new key ever (404s negative-cached),
- * persisted to disk so restarts don't re-hammer it. Adapted from skylight
- * (MIT) server/src/enrich/routes.ts.
+ * airports) and hex → aircraft type/registration.
+ *
+ * Stage 5.3: route data credits forbid copying into other databases — routes
+ * stay in a process-memory TTL only and are NEVER written to disk. Aircraft
+ * type/registration may use a short disk cache (separate from routes).
  */
 export function adsbdbProxy() {
   const TTL_MS = 24 * 3600_000;
   const CACHE_PATH = path.join(process.cwd(), '.gev-cache', 'adsbdb.json');
+  /** @type {{ routes: Record<string, {at:number,data:any}>, aircraft: Record<string, {at:number,data:any}> }} */
   let cache = { routes: {}, aircraft: {} };
   let dirty = false;
   let loaded = false;
@@ -20,7 +22,8 @@ export function adsbdbProxy() {
     loaded = true;
     try {
       const parsed = JSON.parse(await fsp.readFile(CACHE_PATH, 'utf8'));
-      cache = { routes: parsed.routes ?? {}, aircraft: parsed.aircraft ?? {} };
+      // Intentionally drop any legacy routes blob — must not re-persist.
+      cache = { routes: {}, aircraft: parsed.aircraft ?? {} };
     } catch {
       /* first run */
     }
@@ -29,10 +32,15 @@ export function adsbdbProxy() {
       dirty = false;
       try {
         await fsp.mkdir(path.dirname(CACHE_PATH), { recursive: true });
-        await fsp.writeFile(CACHE_PATH, JSON.stringify(cache), 'utf8');
+        // Aircraft only — never routes.
+        await fsp.writeFile(
+          CACHE_PATH,
+          JSON.stringify({ aircraft: cache.aircraft }),
+          'utf8',
+        );
       } catch {
         dirty = true;
-      } // retry next tick
+      }
     }, 15_000).unref?.();
   }
 
@@ -58,7 +66,7 @@ export function adsbdbProxy() {
     const a = json?.response?.aircraft;
     if (!a) return null;
     return {
-      typeCode: a.icao_type || null, // ICAO designator, e.g. "B738" — feeds classifyAircraft
+      typeCode: a.icao_type || null,
       typeName:
         a.manufacturer && a.type
           ? `${a.manufacturer} ${a.type}`
@@ -86,18 +94,18 @@ export function adsbdbProxy() {
                 kind === 'route'
                   ? parseRoute(await res.json())
                   : parseAircraft(await res.json());
-              store[key] = { at: Date.now(), data }; // data may be null — negative cache
-              dirty = true;
+              store[key] = { at: Date.now(), data };
+              // Persist aircraft only; routes stay memory-only.
+              if (kind === 'aircraft') dirty = true;
               return data;
             }
             if (res.status === 404) {
-              store[key] = { at: Date.now(), data: null }; // known-missing — cache the miss
-              dirty = true;
+              store[key] = { at: Date.now(), data: null };
+              if (kind === 'aircraft') dirty = true;
             }
-            // other statuses: leave uncached so we retry later
             return fresh(store[key]) ? store[key].data : null;
           } catch {
-            return fresh(store[key]) ? store[key].data : null; // network error → stale if any
+            return fresh(store[key]) ? store[key].data : null;
           } finally {
             inflight.delete(ik);
           }
@@ -143,5 +151,11 @@ export function adsbdbProxy() {
     name: 'adsbdb-proxy',
     configureServer: installMiddleware,
     configurePreviewServer: installMiddleware,
+    /** Test seam: inspect whether routes would be persisted. */
+    _test: {
+      routesPersistToDisk: false,
+      cachePath: CACHE_PATH,
+      getCache: () => cache,
+    },
   };
 }

@@ -1,0 +1,15 @@
+{
+  "name": "Earth Eye",
+  "short_name": "Earth Eye",
+  "description": "A 3D console for public geospatial signals. Public, delayed data; not for navigation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#03080b",
+  "theme_color": "#03080b",
+  "icons": [
+    { "src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

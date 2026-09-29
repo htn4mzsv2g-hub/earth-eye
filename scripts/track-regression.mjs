@@ -528,6 +528,9 @@ async function main() {
     // harness is meant to catch. Load the already-approved airplane asset
     // directly through Cesium, outside the Flights/Military model pipelines,
     // then remove the control before exercising product behavior.
+    // Cesium handle: a production build (vite-plugin-cesium) exposes the app's
+    // own Cesium as the `window.Cesium` global and has no /node_modules/ route;
+    // the dev server has no global but serves the module path.
     const glbControlStarted = await evalPage(async () => {
       window.__qaGlbControl = null;
       window.__qaGlbControlError = null;
@@ -536,7 +539,7 @@ async function main() {
       if (!asset.ok || assetBytes === 0) {
         throw new Error(`GLB control asset unavailable: HTTP ${asset.status}`);
       }
-      const Cesium = await import('/node_modules/cesium/Build/Cesium/index.js');
+      const Cesium = (window.Cesium ?? await import('/node_modules/cesium/Build/Cesium/index.js'));
       const viewer = window.__godsEyeView.viewer;
       const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
         Cesium.Cartesian3.fromDegrees(-97.7431, 30.2672, 9000),
@@ -2844,7 +2847,7 @@ async function main() {
     const DF_SEED_M = 400; // identity-probe floor for the fix cell
 
     const dfSetup = await evalPage(async () => {
-      const Cesium = await import('/node_modules/cesium/Build/Cesium/index.js');
+      const Cesium = (window.Cesium ?? await import('/node_modules/cesium/Build/Cesium/index.js'));
       const gev = window.__godsEyeView;
       const v = gev.viewer;
       const fl = gev.dataManager.layers.get('flights').module;
@@ -3369,7 +3372,7 @@ async function main() {
       // billboard used to swap it for an unfloored cyan target under the mesh.
       const dfTracked = await evalPage(async () => {
         const v = window.__godsEyeView.viewer;
-        const Cesium = await import('/node_modules/cesium/Build/Cesium/index.js');
+        const Cesium = (window.Cesium ?? await import('/node_modules/cesium/Build/Cesium/index.js'));
         const fl = window.__godsEyeView.dataManager.layers.get('flights').module;
         const gf = window.__dfGf;
         const cell = (x) => Number(x.toFixed(3));
@@ -3629,7 +3632,7 @@ async function main() {
       // its model on zoom without the operator arming anything.
       const dfRetained = await evalPage(async () => {
         const v = window.__godsEyeView.viewer;
-        const Cesium = await import('/node_modules/cesium/Build/Cesium/index.js');
+        const Cesium = (window.Cesium ?? await import('/node_modules/cesium/Build/Cesium/index.js'));
         const fl = window.__godsEyeView.dataManager.layers.get('flights').module;
         const gf = window.__dfGf;
         const cell = (x) => Number(x.toFixed(3));
@@ -3761,7 +3764,7 @@ async function main() {
       // below separately samples the no-rendering-model window.
       const dfLoading = await evalPage(async () => {
         const v = window.__godsEyeView.viewer;
-        const Cesium = await import('/node_modules/cesium/Build/Cesium/index.js');
+        const Cesium = (window.Cesium ?? await import('/node_modules/cesium/Build/Cesium/index.js'));
         const fl = window.__godsEyeView.dataManager.layers.get('flights').module;
         const gf = window.__dfGf;
         const cell = (x) => Number(x.toFixed(3));
@@ -3953,7 +3956,7 @@ async function main() {
       // taxi is; waiting out the 30 s render delay for the feed to move the
       // display would measure the same thing half a minute later.
       const dfHold = await evalPage(async () => {
-        const Cesium = await import('/node_modules/cesium/Build/Cesium/index.js');
+        const Cesium = (window.Cesium ?? await import('/node_modules/cesium/Build/Cesium/index.js'));
         const v = window.__godsEyeView.viewer;
         const fl = window.__godsEyeView.dataManager.layers.get('flights').module;
         // Test the registered instance directly, including catalogs constructed

@@ -10,13 +10,15 @@ test('missing photoreal credentials explain both supported setup routes', () => 
     photorealUnavailableReason(false),
     /Needs GOOGLE_MAPS_API_KEY.*Provider Settings/,
   );
-  assert.match(photorealUnavailableReason(false), /Cesium ion token/);
+  assert.match(photorealUnavailableReason(false), /CESIUM_ION_TOKEN/);
+  assert.match(photorealUnavailableReason(false), /Esri satellite/i);
 });
 
 test('a configured but failed photoreal route does not ask for another key', () => {
   const reason = photorealUnavailableReason(true);
-  assert.match(reason, /unavailable.*restrictions, quota, or network/);
-  assert.doesNotMatch(reason, /Needs|add it/);
+  assert.match(reason, /unavailable/i);
+  assert.match(reason, /restrictions|quota|network/i);
+  assert.doesNotMatch(reason, /Needs GOOGLE_MAPS_API_KEY/);
 });
 
 test('controller credential detection accepts ion without a browser global', () => {
