@@ -182,24 +182,27 @@ Honest status for the incoming developer. “Verified” here means owner, ChatG
 
 ### RESIL
 
-- Branch: `cursor/sat-celestrak-resilience-abf1`
-- SHA: `596af727b718186cc4a936ae1d6847fbab0db129`
-- PR: https://github.com/htn4mzsv2g-hub/earth-eye/pull/4
-- Status: unfinished / **DO NOT DEPLOY** / cancelled mid-flight
+- `cursor/sat-celestrak-resilience-abf1` @ `596af727b718186cc4a936ae1d6847fbab0db129` — https://github.com/htn4mzsv2g-hub/earth-eye/pull/4 — unfinished, **DO NOT DEPLOY** (cancelled mid-flight)
 
 ### WIP snapshot
 
-- Branch: `wip/chatgpt-handoff-2026-09-29` @ `6ee111c15642a717b9f13321824ba248b9c1cc02`
-- PR: https://github.com/htn4mzsv2g-hub/earth-eye/pull/5 (draft, **DO NOT MERGE**)
+- `wip/chatgpt-handoff-2026-09-29` @ `6ee111c15642a717b9f13321824ba248b9c1cc02` — https://github.com/htn4mzsv2g-hub/earth-eye/pull/5 (draft, **DO NOT MERGE**)
 - That tip contains a real `wip-parked/` snapshot (**7 files**) past the restore line it was branched from. It is **not** an empty restore-only tip.
 - The full test log is also at `wip-parked/HANDOFF_FULL_TEST_LOG_b846a3e.txt` on that branch. The same full log stays committed on this restore/handoff branch at [`docs/HANDOFF_FULL_TEST_LOG_b846a3e.txt`](docs/HANDOFF_FULL_TEST_LOG_b846a3e.txt).
-- Omissions: the full divergent atlas-eye history and the ~89-file tree were **not** uploaded. Secrets and `node_modules` were omitted. RESIL is the branch above, not this snapshot.
+- This snapshot omits the full divergent atlas-eye history. Secrets and `node_modules` were omitted. RESIL is the branch above, not this snapshot.
 
-### Fuller archive (being prepared)
+### Full delta archive (non-deployable)
 
-A fuller non-deployable archive of local `c6ef09d` versus known-good `b846a3e` is being prepared on a separate WIP/archive branch. The name will be `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` when that archive is uploaded. **Do not merge it. Do not deploy it.**
+Local archive is ready. GitHub upload is in flight.
 
-At this handoff write, origin already has `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` pointing at `6ee111c15642a717b9f13321824ba248b9c1cc02` (the same 7-file park tip). That is not the fuller ~89-file tree. Treat later commits on that name the same way: do not merge, do not deploy.
+- Local: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`
+- sha256: `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`
+- GitHub branch (upload in progress): `wip/archive-c6ef09d-vs-b846a3e-2026-09-29`
+- Compares local tip `c6ef09d852db1675f501d54d8c27d1897334804d` vs known-good `b846a3e0557bc879142aef69c2babd812757a9fc` (divergent histories)
+- Includes MANIFEST+checksums, patches, file snapshots, DELETIONS; omits secrets/`node_modules`/`dist`/media binaries (~70MB)/`.git`
+- **DO NOT MERGE / DO NOT DEPLOY**
+
+At this handoff write, origin `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` still points at `6ee111c15642a717b9f13321824ba248b9c1cc02` (the 7-file park tip). That tip is not the tarball. The checksum above is the owner-recorded digest of the local archive; this VM does not hold the file. When the upload lands, still do not merge it and do not deploy it.
 
 The seven `wip-parked/` files at `6ee111c`:
 
@@ -215,9 +218,9 @@ The seven `wip-parked/` files at `6ee111c`:
 | --- | --- | --- |
 | `wip/chatgpt-handoff-2026-09-29` | **`6ee111c15642a717b9f13321824ba248b9c1cc02`**. Draft [PR #5](https://github.com/htn4mzsv2g-hub/earth-eye/pull/5). Real 7-file `wip-parked/` snapshot, not an empty restore-only tip. | **DO NOT MERGE. DO NOT DEPLOY.** |
 | `cursor/sat-celestrak-resilience-abf1` | `596af727b718186cc4a936ae1d6847fbab0db129` ([PR #4](https://github.com/htn4mzsv2g-hub/earth-eye/pull/4)) | Unfinished / **DO NOT DEPLOY** / cancelled mid-flight. Not part of the WIP park snapshot. |
-| `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` | Name reserved for the fuller non-deployable `c6ef09d` vs `b846a3e` archive. Currently the same SHA as the 7-file park (`6ee111c`). | **DO NOT MERGE. DO NOT DEPLOY.** The fuller tree is not this tip. |
+| `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` | Full delta archive upload in progress. Local tarball `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`, sha256 `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`. Origin tip at this write is still `6ee111c` (not the tarball). | **DO NOT MERGE. DO NOT DEPLOY.** |
 | `fix/audit10-workflow` | `d78c49cd3bc4313077823965dd11d1f7d2138cf5` | Divergent historical WIP versus the local atlas-eye line (remote tip is a squashed Fly v58 audit-10 checkpoint). In this clone that SHA is an ancestor of the restore branch. Checking it out drops the later iPhone globe fixes. Not the known-good tree. |
-| Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **History not on GitHub.** Parent recorded as `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`. The ~89-file tree was not uploaded. Do not recreate, force-push, merge, or deploy that history. |
+| Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **Git history not on GitHub** (parent `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`, divergent from known-good). The non-deployable comparison archive is the full-delta section above. Do not merge or deploy it. |
 
 `origin/work/fly-v58-checkpoint-2026-09-29` is the same SHA as `fix/audit10-workflow`. `origin/handoff/2026-09-29` (`b7259df`) is an older docs branch off `main`. Neither is production.
 
