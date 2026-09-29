@@ -4,6 +4,20 @@
 **Owner:** Ruben, confirmed on a physical iPhone (drag and pinch).  
 **This file is the rollback point.** Do not redeploy Fly to “save” it. The image below is already the working release.
 
+```text
+FINAL HANDOFF — verify before further changes. Do not redeploy Fly.
+
+1. Branch name: cursor/restore-preaudit-globe-444e
+2. Tag name: known-good/iphone-globe-v66-b846a3e
+3. Full commit SHA: b846a3e0557bc879142aef69c2babd812757a9fc
+4. Rollback command: fly deploy -a eartheye --ha=false --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
+
+Fly release: v66
+BUILD_ID: git-b846a3e-202609290929
+Image: registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
+Image digest: sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
+```
+
 ## Identity
 
 | Item | Value |
@@ -23,21 +37,11 @@ The tag is the product code that built this image. Docs added after `b846a3e` do
 
 ## Rollback
 
-Same machine, no new app. Prefer the digest so the bytes cannot move.
+Use the command in the final-handoff block above, unchanged:
 
-```bash
-HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
-  fly deploy -a eartheye --ha=false \
-  --image registry.fly.io/eartheye@sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
-```
+`fly deploy -a eartheye --ha=false --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z`
 
-The deployment tag is that same image:
-
-```bash
-HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
-  fly deploy -a eartheye --ha=false \
-  --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
-```
+That image is digest `sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824`. Run it only after a later deploy is bad. Matching source:
 
 ```bash
 git checkout known-good/iphone-globe-v66-b846a3e

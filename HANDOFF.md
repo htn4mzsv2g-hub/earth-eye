@@ -7,7 +7,21 @@
 
 ## Known-good iPhone globe (use this rollback)
 
-Owner Ruben confirmed physical iPhone **drag and pinch** on **2026-09-29 ~9:34 AM CT**. This supersedes the older “ticket still open / do not deploy” notes below for globe gestures.
+Owner Ruben confirmed physical iPhone **drag and pinch** on **2026-09-29 ~9:34 AM CT**. This supersedes the older “ticket still open / do not deploy” notes below for globe gestures. The block below is identical in `docs/ROLLOUT_KNOWN_GOOD.md`, `docs/IPHONE_GLOBE_RELEASE_MAP.md`, `DEPLOY_FLY.md`, and PR #3.
+
+```text
+FINAL HANDOFF — verify before further changes. Do not redeploy Fly.
+
+1. Branch name: cursor/restore-preaudit-globe-444e
+2. Tag name: known-good/iphone-globe-v66-b846a3e
+3. Full commit SHA: b846a3e0557bc879142aef69c2babd812757a9fc
+4. Rollback command: fly deploy -a eartheye --ha=false --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
+
+Fly release: v66
+BUILD_ID: git-b846a3e-202609290929
+Image: registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
+Image digest: sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
+```
 
 | Item | Value |
 | --- | --- |
@@ -19,11 +33,7 @@ Owner Ruben confirmed physical iPhone **drag and pinch** on **2026-09-29 ~9:34 A
 | Branch / PR | `cursor/restore-preaudit-globe-444e` · https://github.com/htn4mzsv2g-hub/earth-eye/pull/3 |
 | Tag | `known-good/iphone-globe-v66-b846a3e` |
 
-```bash
-HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
-  fly deploy -a eartheye --ha=false \
-  --image registry.fly.io/eartheye@sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
-```
+Rollback command (same as the block): `fly deploy -a eartheye --ha=false --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z`
 
 Canonical write-up: [`docs/ROLLOUT_KNOWN_GOOD.md`](docs/ROLLOUT_KNOWN_GOOD.md). Map: [`docs/IPHONE_GLOBE_RELEASE_MAP.md`](docs/IPHONE_GLOBE_RELEASE_MAP.md). Do not redeploy v66 just to record it. Do not roll the globe back to v57, v62, v64, or v65.
 

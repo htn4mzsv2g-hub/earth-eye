@@ -62,7 +62,21 @@ The center hit was `canvas#world-overlay-detection-surface` (`pe=auto`, `z=5`) o
 
 ## v66: known-good (physical drag and pinch)
 
-Owner Ruben confirmed this release on a physical iPhone on **2026-09-29 ~9:34 AM CT**.
+Owner Ruben confirmed this release on a physical iPhone on **2026-09-29 ~9:34 AM CT**. Same block as `docs/ROLLOUT_KNOWN_GOOD.md`, `HANDOFF.md`, `DEPLOY_FLY.md`, and PR #3.
+
+```text
+FINAL HANDOFF — verify before further changes. Do not redeploy Fly.
+
+1. Branch name: cursor/restore-preaudit-globe-444e
+2. Tag name: known-good/iphone-globe-v66-b846a3e
+3. Full commit SHA: b846a3e0557bc879142aef69c2babd812757a9fc
+4. Rollback command: fly deploy -a eartheye --ha=false --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
+
+Fly release: v66
+BUILD_ID: git-b846a3e-202609290929
+Image: registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z
+Image digest: sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
+```
 
 | Item | Value |
 | --- | --- |
@@ -74,15 +88,9 @@ Owner Ruben confirmed this release on a physical iPhone on **2026-09-29 ~9:34 AM
 | Branch | `cursor/restore-preaudit-globe-444e` |
 | Tag | `known-good/iphone-globe-v66-b846a3e` |
 
-Rollback (digest pin; do not run this unless a later deploy is bad):
+Rollback command (same as the block; do not run unless a later deploy is bad): `fly deploy -a eartheye --ha=false --image registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z`
 
-```bash
-HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
-  fly deploy -a eartheye --ha=false \
-  --image registry.fly.io/eartheye@sha256:b0ce45ef7a4386b850238fbc8161c3618bb8822891cf363d70c5ee7987618824
-```
-
-Deployment tag for the same image: `registry.fly.io/eartheye:deployment-01M3PS536PEVZP5SDRP6K3CC7Z`. Full record: [`ROLLOUT_KNOWN_GOOD.md`](ROLLOUT_KNOWN_GOOD.md).
+Full record: [`ROLLOUT_KNOWN_GOOD.md`](ROLLOUT_KNOWN_GOOD.md).
 
 ## This fix shipped as v66
 
