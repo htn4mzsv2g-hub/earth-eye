@@ -75,7 +75,7 @@ On `cursor/restore-preaudit-globe-444e`, commits after `b846a3e0557bc879142aef69
 | `a03537e3b999972e490bc569667e41be1aba2f83` | Docs: record Fly v66 as the known-good iPhone globe rollback |
 | `6a6164773509e12c2b325c92d052442bc2cc3976` | Docs: same Fly v66 block in the rollback docs |
 | `6b34569bfd750ffc54f1d199d15f9aed487c2f9b` | Docs: first ChatGPT takeover draft (still said the suite was unrun) |
-| This commit | Docs: record the `b846a3e` build/test transcript. Tests and assertions are unchanged. |
+| `16e31bf735d091ca19c03308f30e5bce3f6f7db1` | Docs: full `b846a3e` test transcript and the recorded 65 failures. Tests and assertions are unchanged. |
 
 Do not redeploy v66 just to record it.
 
