@@ -54,6 +54,12 @@ Lines to paste if another read is needed: `BUILD`, `META`, `LOADER AT OPEN`, `LO
 
 No document records a signed physical drag-and-pinch pass. The last owner note that the hosted globe still moved is Stage 2: it felt laggy and less immersive than God’s Eye View on a physical iPhone (`docs/STAGE2_REPORT.md`). That era’s rollback image is Fly v7 `registry.fly.io/eartheye:deployment-01M3NP74GRYB7T6M59TY3R9PA2`. Stage 1 (v7) did not use a physical iPhone. Non-3D graphics recovery starts at Fly v55; the image before that is v54 `registry.fly.io/eartheye:deployment-01M3PEW4KQQ6ZC1V00HM0C2C8J`. **v57 is after the non-3D audit. It is not a known-good globe.** Do not roll back to v62.
 
+## v65: loader is gone; the detection surface took the touch
+
+Fly **v65** BUILD MATCH `git-3831c06-202609290905`. `LOADER` is `class=hidden`, `display=none`, `released=1`, `connected=yes`. That path is closed.
+
+The center hit was `canvas#world-overlay-detection-surface` (`pe=auto`, `z=5`) over `#cesiumContainer`. Gesture class A: the touch never reached the Cesium canvas. Compact mobile CSS restores gestures with `html.ee-compact:not([data-ee-overlay]) #cesiumContainer canvas { pointer-events: auto !important }`. The detection blend canvas is parented inside `#cesiumContainer`, so that rule made the full-bleed paint surface the hit target. The surface stays `pointer-events: none` (stylesheet exception plus inline `!important`). It is a blend layer, not an input layer. Scope mask, celestial ring, and wind canvases in the same container are exempt the same way. A free-nav `pointerdown` / `touchstart` turns camera inputs back on unless cockpit or an active gizmo/imagery drag owns them.
+
 ## This fix is not a deploy
 
 Source for the loader cap, input trace, and gesture recording is on the restore branch. It is not deployed. Deploy only after this note is the one being shipped. Success is still a physical drag and pinch.

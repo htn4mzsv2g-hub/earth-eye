@@ -1150,9 +1150,21 @@ html.ee-compact .ee-cam-primary {
   padding-top: 4px;
 }
 
-/* Hard restore: when overlay attribute is gone, canvas MUST accept gestures */
+/* Hard restore: when overlay attribute is gone, the Cesium canvas MUST accept
+   gestures. This matches every canvas inside #cesiumContainer. Paint surfaces
+   parented there — the detection blend (z-index 5, full bleed), the scope
+   mask, the celestial ring, and the wind field — are not gesture targets.
+   On a phone that rule was winning with !important, so the center hit was
+   canvas#world-overlay-detection-surface and the drag never reached Cesium
+   (Fly v65, physical iPhone, BUILD MATCH git-3831c06). */
 html.ee-compact:not([data-ee-overlay]) #cesiumContainer canvas {
   pointer-events: auto !important;
+}
+html.ee-compact #cesiumContainer canvas#world-overlay-detection-surface,
+html.ee-compact #cesiumContainer canvas#scope-mask,
+html.ee-compact #cesiumContainer #celestial-ring-overlay canvas,
+html.ee-compact #cesiumContainer canvas[data-gev-wind] {
+  pointer-events: none !important;
 }
 
 /* Required Google attribution when Photorealistic 3D is active */

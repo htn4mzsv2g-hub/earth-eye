@@ -138,9 +138,20 @@ export function createApplicationTools({
   };
   document.addEventListener('visibilitychange', releaseIfVisible);
   const removeLoaderGuards = installLoaderReleaseGuards(document);
+  // A sticky enableInputs=false (v64) must be gone before Cesium handles the
+  // gesture. Capture runs before the gizmo and imagery box claim the drag,
+  // and those owners set their hold on the way down, so a free-nav touch
+  // turns inputs back on and an active cockpit or gizmo drag does not.
+  const restoreFreeNavInputs = () => {
+    restoreCameraInputsUnlessCockpit(viewer, document, 'gesture');
+  };
+  document.addEventListener('pointerdown', restoreFreeNavInputs, true);
+  document.addEventListener('touchstart', restoreFreeNavInputs, true);
   defer(() => {
     for (const timer of startupReleaseTimers) clearTimeout(timer);
     document.removeEventListener('visibilitychange', releaseIfVisible);
+    document.removeEventListener('pointerdown', restoreFreeNavInputs, true);
+    document.removeEventListener('touchstart', restoreFreeNavInputs, true);
     removeLoaderGuards();
   });
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
