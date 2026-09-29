@@ -224,7 +224,9 @@ Older handoff text named audit-10 SHAs `dc51575`, `bfe24f9`, `b15ea56`, `258ea66
 - Local tarball: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`
 - Expanded dir: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e-2026-09-29/`
 - **Full SHA-256:** `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`
-- **GitHub branch:** `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` @ `5678a1b48d6b8f1fc7e1e69b9274c256e708ab08` — https://github.com/htn4mzsv2g-hub/earth-eye/pull/6 — DO NOT MERGE / DO NOT DEPLOY
+- GitHub branch: `wip/archive-c6ef09d-vs-b846a3e-2026-09-29`
+- GitHub tip SHA: `5678a1b48d6b8f1fc7e1e69b9274c256e708ab08`
+- Draft PR: https://github.com/htn4mzsv2g-hub/earth-eye/pull/6 (DO NOT MERGE)
 - Compares `c6ef09d852db1675f501d54d8c27d1897334804d` vs known-good `b846a3e0557bc879142aef69c2babd812757a9fc`
 - DO NOT MERGE / DO NOT DEPLOY
 
