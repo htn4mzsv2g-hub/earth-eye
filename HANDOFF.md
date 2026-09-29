@@ -207,7 +207,7 @@ The seven `wip-parked/` files at `6ee111c`:
 | --- | --- | --- |
 | `wip/chatgpt-handoff-2026-09-29` | **`6ee111c15642a717b9f13321824ba248b9c1cc02`**. Draft [PR #5](https://github.com/htn4mzsv2g-hub/earth-eye/pull/5). Real 7-file `wip-parked/` snapshot, not an empty restore-only tip. | **DO NOT MERGE. DO NOT DEPLOY.** |
 | `cursor/sat-celestrak-resilience-abf1` | `596af727b718186cc4a936ae1d6847fbab0db129` ([PR #4](https://github.com/htn4mzsv2g-hub/earth-eye/pull/4)) | Unfinished / **DO NOT DEPLOY** / cancelled mid-flight. Not part of the WIP park snapshot. |
-| `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` | Full delta archive. Local `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`. Expanded `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e-2026-09-29/`. SHA-256 `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`. Upload in flight. | **DO NOT MERGE. DO NOT DEPLOY.** |
+| `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` | Archive uploaded. Tip `5678a1b48d6b8f1fc7e1e69b9274c256e708ab08`. [PR #6](https://github.com/htn4mzsv2g-hub/earth-eye/pull/6). Local `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`. Expanded `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e-2026-09-29/`. SHA-256 `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`. | **DO NOT MERGE. DO NOT DEPLOY.** |
 | `fix/audit10-workflow` | `d78c49cd3bc4313077823965dd11d1f7d2138cf5` | Divergent historical WIP versus the local atlas-eye line (remote tip is a squashed Fly v58 audit-10 checkpoint). In this clone that SHA is an ancestor of the restore branch. Checking it out drops the later iPhone globe fixes. Not the known-good tree. |
 | Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **Git history not on GitHub** (parent `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`, divergent from known-good). The non-deployable comparison archive is the full-delta section below. Do not merge or deploy it. |
 
@@ -224,9 +224,9 @@ Older handoff text named audit-10 SHAs `dc51575`, `bfe24f9`, `b15ea56`, `258ea66
 - Local tarball: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`
 - Expanded dir: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e-2026-09-29/`
 - **Full SHA-256:** `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`
-- GitHub branch: `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` (upload may still be landing; treat as ARCHIVE ONLY)
-- Compares local tip `c6ef09d852db1675f501d54d8c27d1897334804d` vs known-good `b846a3e0557bc879142aef69c2babd812757a9fc` (divergent histories)
-- **DO NOT MERGE / DO NOT DEPLOY**
+- **GitHub branch:** `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` @ `5678a1b48d6b8f1fc7e1e69b9274c256e708ab08` — https://github.com/htn4mzsv2g-hub/earth-eye/pull/6 — DO NOT MERGE / DO NOT DEPLOY
+- Compares `c6ef09d852db1675f501d54d8c27d1897334804d` vs known-good `b846a3e0557bc879142aef69c2babd812757a9fc`
+- DO NOT MERGE / DO NOT DEPLOY
 
 ### Exact omissions
 
