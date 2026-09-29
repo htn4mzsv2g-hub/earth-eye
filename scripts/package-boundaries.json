@@ -20,7 +20,14 @@
   },
   "viewer": {
     "exports": ["./application/viewer"],
-    "modules": ["src/app/viewer.js", "src/app/atmosphereCompat.js"],
+    "modules": [
+      "src/app/viewer.js",
+      "src/app/atmosphereCompat.js",
+      "src/app/mobileGpuProfile.js",
+      "src/app/graphicsRecovery.js",
+      "src/app/loadingScreenRelease.js",
+      "src/app/cameraInputTrace.js"
+    ],
     "external": ["cesium"]
   },
   "vite-build": {
@@ -1340,6 +1347,13 @@
       "src/sources/sourceSlot.js",
       "src/app/sources.js",
       "src/app/startupChrome.js",
+      "src/app/loadingScreenRelease.js",
+      "src/app/graphicsRecovery.js",
+      "src/app/mobileGpuProfile.js",
+      "src/app/globeDiagnosticsPanel.js",
+      "src/app/globeGestureTrace.js",
+      "src/app/cameraInputTrace.js",
+      "src/app/buildStamp.js",
       "src/app/stateChannel.js",
       "src/app/surfaceServices.js",
       "src/app/tools.js",

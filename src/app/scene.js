@@ -24,6 +24,7 @@ import {
   createGraphicsFailedScene,
   shouldForceNon3dMode,
   clearCesiumErrorOverlay,
+  setForceNon3dFlag,
 } from './graphicsRecovery.js';
 
 /** Construct the application globe using the caller's local configuration. */
@@ -90,6 +91,8 @@ export async function createApplicationScene({
     }
     throw error;
   }
+  // A previous audit tab must not keep this visit in non-3D.
+  setForceNon3dFlag(false);
   defer(() => {
     uninstallRenderGovernor(viewer);
     if (!viewer.isDestroyed()) viewer.destroy();

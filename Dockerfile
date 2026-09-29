@@ -25,6 +25,11 @@ ENV CI=true \
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# .git is dockerignored. Parent deploy should pass
+#   --build-arg EE_BUILD_ID=git-<sha>-<YYYYMMDDHHmm>
+# so the diagnostic BUILD line matches the bundle.
+ARG EE_BUILD_ID=unknown
+ENV EE_BUILD_ID=${EE_BUILD_ID}
 RUN --mount=type=secret,id=CESIUM_ION_TOKEN,required=false \
     --mount=type=secret,id=GOOGLE_MAPS_API_KEY,required=false \
     if [ -s /run/secrets/CESIUM_ION_TOKEN ]; then export CESIUM_ION_TOKEN="$(cat /run/secrets/CESIUM_ION_TOKEN)"; fi; \

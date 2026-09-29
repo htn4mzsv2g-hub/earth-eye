@@ -205,7 +205,7 @@ test('createGraphicsFailedState is honest and frozen', () => {
   });
 });
 
-test('shouldForceNon3dMode reads query and session flag (no auth bypass)', () => {
+test('shouldForceNon3dMode is query-only and ignores a stored flag', () => {
   assert.equal(shouldForceNon3dMode('?ee_non3d=1', null), true);
   assert.equal(shouldForceNon3dMode('?ee_non3d=true', null), true);
   assert.equal(shouldForceNon3dMode('?ee_non3d=0', null), false);
@@ -217,9 +217,10 @@ test('shouldForceNon3dMode reads query and session flag (no auth bypass)', () =>
   };
   setForceNon3dFlag(true, storage);
   assert.equal(storage.getItem(NON3D_STORAGE_KEY), '1');
-  assert.equal(shouldForceNon3dMode('?', storage), true);
-  setForceNon3dFlag(false, storage);
   assert.equal(shouldForceNon3dMode('?', storage), false);
+  assert.equal(shouldForceNon3dMode('', storage), false);
+  setForceNon3dFlag(false, storage);
+  assert.equal(shouldForceNon3dMode('?ee_non3d=1', storage), true);
   assert.equal(NON3D_QUERY_PARAM, 'ee_non3d');
 });
 

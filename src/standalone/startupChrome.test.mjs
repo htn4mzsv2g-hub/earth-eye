@@ -10,6 +10,15 @@ const source = readFileSync(
   .replace(/^import .*;\n/gm, '')
   .replace('export function', 'function');
 
+// The real release lives in loadingScreenRelease.js (hit-test contract is
+// tested there). This shim only records the cover hide the startup order
+// depends on.
+const prelude = `function releaseLoadingScreen(loadingScreen) {
+  loadingScreen.classList.add('hidden');
+}
+function restoreCameraInputsUnlessCockpit() {}
+`;
+
 function fixture() {
   const timers = new Map();
   const listeners = new Map();
@@ -36,7 +45,7 @@ function fixture() {
     },
   };
   vm.createContext(context);
-  vm.runInContext(source, context);
+  vm.runInContext(prelude + source, context);
   const stop = context.startApplicationChrome({
     initializeSettings: context.initKeySetup,
     loadingScreen: {
@@ -97,6 +106,16 @@ test('reduced motion uses the bounded fallback after the cover hides', async () 
   f.fire(900);
   assert.deepEqual(f.events, ['hidden', 'welcome']);
   await f.stop();
+});
+
+test('a hung share restore still drops the loader and does not reveal welcome', async () => {
+  const f = fixture();
+  f.fire(1200);
+  await flush();
+  assert.deepEqual(f.events, ['hidden']);
+  assert.equal(f.listeners.size, 0);
+  f.fire(900);
+  assert.deepEqual(f.events, ['hidden']);
 });
 
 test('shutdown while restore is pending never reveals late welcome UI', async () => {

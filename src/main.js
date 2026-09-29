@@ -7,8 +7,10 @@ import {
   dismissLoadingScreen,
   clearCesiumErrorOverlay,
   defaultGraphicsRetry,
-  setForceNon3dFlag,
 } from './app/graphicsRecovery.js';
+import { installGlobeDiagnostics } from './app/globeDiagnosticsPanel.js';
+
+installGlobeDiagnostics();
 
 const application = createStandaloneApplication({
   googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
@@ -31,7 +33,6 @@ application.start().catch((error) => {
     mountGraphicsRecoveryPanel({
       state,
       onRetry: () => defaultGraphicsRetry(),
-      onContinue: () => setForceNon3dFlag(true),
     });
     if (loaderStatus) {
       loaderStatus.textContent = state.headline;

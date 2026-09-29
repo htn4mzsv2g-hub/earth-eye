@@ -1234,6 +1234,20 @@ function leastOverlappingPlacement(placements, exclusions, count) {
   return best;
 }
 
+function keepOverlayOutOfHitTesting(node) {
+  const style = node?.style;
+  if (!style) return;
+  if (typeof style.setProperty === 'function') {
+    try {
+      style.setProperty('pointer-events', 'none', 'important');
+      return;
+    } catch {
+      /* CSSOM rejected the priority */
+    }
+  }
+  style.pointerEvents = 'none';
+}
+
 function ensureOverlayDom() {
   _root = document.getElementById(ROOT_ID);
   if (!_root) {
@@ -1273,6 +1287,13 @@ function ensureOverlayDom() {
   if (_detectionSurface.parentElement !== detectionParent) {
     detectionParent.appendChild(_detectionSurface);
   }
+  // The surface is a full-bleed paint layer inside #cesiumContainer. Compact
+  // mobile CSS forces `#cesiumContainer canvas { pointer-events: auto
+  // !important }` so the WebGL canvas stays hittable after a sheet closes.
+  // That rule also matches this canvas. Inline important keeps the blend
+  // surface from eating drag and pinch (v65: pe=auto, z=5, class A).
+  keepOverlayOutOfHitTesting(_detectionSurface);
+  keepOverlayOutOfHitTesting(_canvas);
   _root.setAttribute('aria-hidden', 'true');
   _canvas.setAttribute('aria-hidden', 'true');
   _detectionSurface.setAttribute('aria-hidden', 'true');

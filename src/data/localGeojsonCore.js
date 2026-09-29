@@ -911,8 +911,19 @@ export function createLocalGeoJsonLayer(
                   if (targetPos) {
                     const carto = Cesium.Cartographic.fromCartesian(targetPos);
 
-                    // Disable interactions so Cesium doesn't magically cancel the flight
-                    viewer.scene.screenSpaceCameraController.enableInputs = false;
+                    // Disable interactions so Cesium doesn't magically cancel the flight.
+                    // complete/cancel are not guaranteed (a flight that never ticks
+                    // leaves inputs false). The timer is the release if they don't.
+                    const controller = viewer.scene.screenSpaceCameraController;
+                    controller.enableInputs = false;
+                    let inputsRestored = false;
+                    const restoreInputs = () => {
+                      if (inputsRestored) return;
+                      inputsRestored = true;
+                      if (viewer.scene?.screenSpaceCameraController)
+                        viewer.scene.screenSpaceCameraController.enableInputs = true;
+                    };
+                    const restoreTimer = setTimeout(restoreInputs, 2500);
 
                     viewer.camera.flyTo({
                       destination: Cesium.Cartesian3.fromRadians(
@@ -922,10 +933,12 @@ export function createLocalGeoJsonLayer(
                       ),
                       duration: 1.5,
                       complete: () => {
-                        viewer.scene.screenSpaceCameraController.enableInputs = true;
+                        clearTimeout(restoreTimer);
+                        restoreInputs();
                       },
                       cancel: () => {
-                        viewer.scene.screenSpaceCameraController.enableInputs = true;
+                        clearTimeout(restoreTimer);
+                        restoreInputs();
                       },
                     });
                   }

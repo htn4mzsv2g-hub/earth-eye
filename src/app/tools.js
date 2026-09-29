@@ -22,8 +22,10 @@ import {
   labelMapDependentUnavailable,
   defaultGraphicsRetry,
   degradedRunAction,
-  setForceNon3dFlag,
 } from './graphicsRecovery.js';
+import { attachDiagnosticViewer } from './globeDiagnosticsPanel.js';
+import { ensureLoaderReleased, installLoaderReleaseGuards } from './loadingScreenRelease.js';
+import { restoreCameraInputsUnlessCockpit } from './cameraInputTrace.js';
 
 /** Attach scene tools, rendering listeners and the application debug handle. */
 export function createApplicationTools({
@@ -73,7 +75,6 @@ export function createApplicationTools({
         },
       onRetry: () => defaultGraphicsRetry(),
       onContinue: () => {
-        setForceNon3dFlag(true);
         labelMapDependentUnavailable(document.getElementById('atlas-console') || document.body);
       },
     });
@@ -115,6 +116,44 @@ export function createApplicationTools({
   }
 
   applyMobileGpuTuning(viewer);
+  attachDiagnosticViewer(viewer);
+  // Re-hide a loader that startup left up, and put camera inputs back if a
+  // flight callback never restored them. Two beats, not a continuous hammer:
+  // a drag tool may legitimately set inputs false after the user starts one.
+  const releaseStuckStartup = (reason) => {
+    ensureLoaderReleased(document);
+    restoreCameraInputsUnlessCockpit(viewer, document, reason);
+  };
+  const startupReleaseTimers = [3000, 8000].map((delay) =>
+    setTimeout(() => releaseStuckStartup(`startup-${delay}`), delay),
+  );
+  const startupReleaseUntil = Date.now() + 30000;
+  const releaseIfVisible = () => {
+    if (document.hidden) return;
+    if (Date.now() > startupReleaseUntil) {
+      document.removeEventListener('visibilitychange', releaseIfVisible);
+      return;
+    }
+    releaseStuckStartup('visible');
+  };
+  document.addEventListener('visibilitychange', releaseIfVisible);
+  const removeLoaderGuards = installLoaderReleaseGuards(document);
+  // A sticky enableInputs=false (v64) must be gone before Cesium handles the
+  // gesture. Capture runs before the gizmo and imagery box claim the drag,
+  // and those owners set their hold on the way down, so a free-nav touch
+  // turns inputs back on and an active cockpit or gizmo drag does not.
+  const restoreFreeNavInputs = () => {
+    restoreCameraInputsUnlessCockpit(viewer, document, 'gesture');
+  };
+  document.addEventListener('pointerdown', restoreFreeNavInputs, true);
+  document.addEventListener('touchstart', restoreFreeNavInputs, true);
+  defer(() => {
+    for (const timer of startupReleaseTimers) clearTimeout(timer);
+    document.removeEventListener('visibilitychange', releaseIfVisible);
+    document.removeEventListener('pointerdown', restoreFreeNavInputs, true);
+    document.removeEventListener('touchstart', restoreFreeNavInputs, true);
+    removeLoaderGuards();
+  });
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager, {

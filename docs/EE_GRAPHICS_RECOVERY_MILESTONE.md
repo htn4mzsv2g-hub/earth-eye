@@ -23,7 +23,7 @@
 2. High-contrast banner: “3D view is unavailable… You can still explore available data.” — **Retry 3D** | **Continue without 3D**; Logout remains on dock.
 3. Non-3D shell uses same real APIs/permissions/records/timestamps/source-health/selection — no mocks, no fake SUCCESS.
 4. Map-dependent actions labeled UNAVAILABLE with clear why; Analyst map actions → UNAVAILABLE.
-5. Deliberate `?ee_non3d=1` / `ee:force-non3d` test entry (same auth).
+5. Deliberate `?ee_non3d=1` test entry (same auth). A stored flag does not apply to a normal visit.
 6. Regression tests: `src/app/graphicsRecovery.test.mjs`.
 
 ## Rollback
