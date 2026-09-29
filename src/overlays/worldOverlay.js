@@ -1062,8 +1062,31 @@ export function getOverlayPaintRect(sourceId, entryId) {
  * @param {{sourceId?:string,collisionGroup?:string,filter?:Function}} [options]
  * @returns {{sourceId:string,entryId:string,entry:WorldOverlayEntry,rect:OverlayRect}|null}
  */
+/** Minimum CSS-pixel touch target for interactive overlays (iPhone HIG). */
+export const OVERLAY_MIN_HIT_PX = 44;
+
+function hitRectContains(hit, x, y) {
+  // Expand undersized cards to a centered min touch target without moving paint.
+  const min = OVERLAY_MIN_HIT_PX;
+  const padX = Math.max(0, (min - hit.w) / 2);
+  const padY = Math.max(0, (min - hit.h) / 2);
+  return (
+    x >= hit.x - padX &&
+    x <= hit.x + hit.w + padX &&
+    y >= hit.y - padY &&
+    y <= hit.y + hit.h + padY
+  );
+}
+
 export function hitTestWorldOverlay(x, y, options = {}) {
-  if (_destroyed || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const all = hitTestWorldOverlayAll(x, y, options);
+  return all[0] || null;
+}
+
+/** Top-to-bottom interactive hits at a point (for overlap pickers). */
+export function hitTestWorldOverlayAll(x, y, options = {}) {
+  if (_destroyed || !Number.isFinite(x) || !Number.isFinite(y)) return [];
+  const hits = [];
   for (let i = _hitRectCount - 1; i >= 0; i--) {
     const hit = _hitRects[i];
     if (options.sourceId && hit.sourceId !== options.sourceId) continue;
@@ -1074,16 +1097,15 @@ export function hitTestWorldOverlay(x, y, options = {}) {
       continue;
     if (typeof options.filter === 'function' && !options.filter(hit.entry))
       continue;
-    if (x < hit.x || x > hit.x + hit.w || y < hit.y || y > hit.y + hit.h)
-      continue;
-    return {
+    if (!hitRectContains(hit, x, y)) continue;
+    hits.push({
       sourceId: hit.sourceId,
       entryId: hit.entryId,
       entry: hit.entry,
       rect: hit,
-    };
+    });
   }
-  return null;
+  return hits;
 }
 
 /** @returns {object} Copy of the stable diagnostic facade shape. */
@@ -1212,6 +1234,20 @@ function leastOverlappingPlacement(placements, exclusions, count) {
   return best;
 }
 
+function keepOverlayOutOfHitTesting(node) {
+  const style = node?.style;
+  if (!style) return;
+  if (typeof style.setProperty === 'function') {
+    try {
+      style.setProperty('pointer-events', 'none', 'important');
+      return;
+    } catch {
+      /* CSSOM rejected the priority */
+    }
+  }
+  style.pointerEvents = 'none';
+}
+
 function ensureOverlayDom() {
   _root = document.getElementById(ROOT_ID);
   if (!_root) {
@@ -1251,6 +1287,13 @@ function ensureOverlayDom() {
   if (_detectionSurface.parentElement !== detectionParent) {
     detectionParent.appendChild(_detectionSurface);
   }
+  // The surface is a full-bleed paint layer inside #cesiumContainer. Compact
+  // mobile CSS forces `#cesiumContainer canvas { pointer-events: auto
+  // !important }` so the WebGL canvas stays hittable after a sheet closes.
+  // That rule also matches this canvas. Inline important keeps the blend
+  // surface from eating drag and pinch (v65: pe=auto, z=5, class A).
+  keepOverlayOutOfHitTesting(_detectionSurface);
+  keepOverlayOutOfHitTesting(_canvas);
   _root.setAttribute('aria-hidden', 'true');
   _canvas.setAttribute('aria-hidden', 'true');
   _detectionSurface.setAttribute('aria-hidden', 'true');

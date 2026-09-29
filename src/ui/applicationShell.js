@@ -37,7 +37,7 @@ import { ShellFeedback } from './shellFeedback.js';
 import { runCctvLayerEnableTransition } from '../cctvFocusPolicy.js';
 
 /**
- * Central UI orchestrator for the Earth Eye application.
+ * Central UI orchestrator for the Earth Eye application (upstream: God's Eye View, MIT).
  *
  * Responsibilities:
  * - Visual controls and presets backed by the VisualEffects controller.

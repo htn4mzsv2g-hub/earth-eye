@@ -258,7 +258,7 @@ const MUTATIONS = [
   {
     defect: "the owner-authored first-run line is quietly rewritten",
     file: 'html',
-    from: 'A public-signal console. The picture looks restricted. The feeds are not.',
+    from: 'It feels like a forbidden cockpit—then you realize the sources are public and the data is real.',
     to: "It feels like a forbidden cockpit. It isn't — every feed is public, and every contact is live.",
   },
   {

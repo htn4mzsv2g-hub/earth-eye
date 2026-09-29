@@ -223,6 +223,9 @@ const READOUT_CONTEXT_LAYERS = new Set([
   'military-installations',
   'alpr-cameras',
   'local-adsb',
+  'weather-cyclones',
+  'local-firms',
+  'earthquakes',
 ]);
 
 /**

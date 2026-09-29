@@ -31,8 +31,8 @@ import {
   BILLBOARD_SCALE,
   GROUND_SCALE,
   COCKPIT_CONTACT_SIZE_PX,
-  MIL_ICON_COLOR,
   TRACKED_ICON_COLOR,
+  militaryIconColor,
   MODEL_ALT_CEIL_M,
   MODEL_MAX_ALL,
   MODEL_MAX,
@@ -159,7 +159,9 @@ export function createRendering({
       bb.height = COCKPIT_CONTACT_SIZE_PX;
       bb.scale = limbScale;
       bb.scaleByDistance = _cockpitBillboardScaleByDistance();
-      bb.color = MIL_ICON_COLOR.withAlpha(freshnessAlpha);
+      bb.color = militaryIconColor(
+        flightState.records.data.get(icao24),
+      ).withAlpha(freshnessAlpha);
       bb.rotation = 0;
       return;
     }
@@ -173,7 +175,7 @@ export function createRendering({
     bb.height = icao24 === flightState._trackedIcao ? 24 : 20;
     bb.scale = _militaryBillboardScale(icao24) * limbScale;
     bb.scaleByDistance = _normalBillboardScaleByDistance();
-    bb.color = MIL_ICON_COLOR.withAlpha(cyberSonarBaseAlpha(bb));
+    bb.color = militaryIconColor(meta).withAlpha(cyberSonarBaseAlpha(bb));
   }
 
   /** Sprite kind for one contact's billboard. Identity for every aircraft except
@@ -189,7 +191,7 @@ export function createRendering({
 
   function _modelColor(icao24) {
     if (icao24 === flightState._trackedIcao) return TRACKED_ICON_COLOR;
-    return MIL_ICON_COLOR;
+    return militaryIconColor(flightState.records.data.get(icao24));
   }
 
   /** The FLEET's 3D-model regime: models3d enabled AND the camera zoomed in past the altitude
@@ -965,7 +967,7 @@ export function createRendering({
       const isCockpitNear =
         flightState._cockpitContactMode &&
         flightState._cockpitNearContacts.has(icao24);
-      const baseColor = MIL_ICON_COLOR;
+      const baseColor = militaryIconColor(flightState.records.data.get(icao24));
       const treatment = applyAircraftBillboardTreatment({
         billboard: bb,
         baseScale:

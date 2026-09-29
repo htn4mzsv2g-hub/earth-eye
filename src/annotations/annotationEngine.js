@@ -533,19 +533,17 @@ export function createAnnotationEngine({
           fallback: false,
         };
       }
-      // Routing unavailable: do NOT pass off straight segments as a real route. Draw
-      // a clearly-labeled direct line with great-circle distance and NO travel time.
-      let straight = 0;
-      for (let i = 1; i < resolvedPts.length; i += 1)
-        straight += greatCircleM(resolvedPts[i - 1], resolvedPts[i]);
-      return {
-        path: resolvedPts,
-        distanceM: straight,
-        durationS: null,
-        mode,
-        source: resolvedPts[0].source,
-        fallback: true,
-      };
+      // Stage 2/3 correction: never draw a straight-line stand-in. Keep the map
+      // usable and surface an honest failure — Directions already does this.
+      const err = new Error('route unavailable');
+      err.code = 'route-unavailable';
+      err.mode = mode;
+      err.waypoints = resolvedPts.map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        source: p.source,
+      }));
+      throw err;
     }
     if (type === 'arrow') {
       const from = await resolveTarget({
@@ -757,7 +755,7 @@ export function createAnnotationEngine({
       // point), not a real OSM boundary — so the voice layer can be honest.
       ...(anno.synthesized ? { approximate: true } : {}),
       // Route-specific signal so the voice layer can be honest about an OSRM outage:
-      // fallback=true means a straight direct line, not a real route.
+      // fallback=true is legacy (pre Stage 3); new failures throw route-unavailable.
       ...(anno.type === 'route'
         ? {
             fallback: Boolean(anno.fallback),
@@ -1520,7 +1518,7 @@ function normalizeMode(m) {
   return 'foot';
 }
 
-/** Route failure remains an explicitly labelled direct line in the caller. */
+/** Route failure: caller must surface "route unavailable" — no straight-line draw. */
 async function fetchRoute(coordPairs, mode, signal, service) {
   try {
     return (await service.route?.(coordPairs, mode, { signal })) || null;
@@ -1554,10 +1552,9 @@ function composeRouteLabel(baseLabel, distM, durS, mode, fallback) {
   const min = Number.isFinite(durS) ? Math.max(1, Math.round(durS / 60)) : null;
   const word = mode === 'car' ? 'drive' : mode === 'bike' ? 'ride' : 'walk';
   if (mode === 'manual') return baseLabel ? `${baseLabel} — ${dist}` : dist;
-  // Fallback = routing was unavailable, so we drew a straight line: label it as a
-  // direct line with no travel time (never claim an "X min walk" we didn't compute).
+  // Legacy fallback label (should not be produced after Stage 3 routing fix).
   let metrics;
-  if (fallback) metrics = `${dist} · direct line (no route)`;
+  if (fallback) metrics = `${dist} · route unavailable`;
   else metrics = min != null ? `${dist} · ${min} min ${word}` : dist;
   return baseLabel ? `${baseLabel} — ${metrics}` : metrics;
 }

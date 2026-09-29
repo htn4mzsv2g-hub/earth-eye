@@ -258,9 +258,9 @@
 }
 
 #hud-rec-dot {
-  color: #ff3333;
-  text-shadow: 0 0 6px rgba(255, 51, 51, 0.8);
-  font-size: 14px;
+  color: #8fa3ad;
+  font-size: 11px;
+  letter-spacing: 1px;
   vertical-align: middle;
 }
 

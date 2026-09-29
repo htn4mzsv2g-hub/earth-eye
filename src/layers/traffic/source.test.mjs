@@ -133,7 +133,7 @@ test('traffic construction is inert and parameters belong to each layer', async 
   assert.equal(a.getParams().densityScale, 2);
   assert.equal(b.getParams().densityScale, 1);
   assert.equal(b.getParams().speedScale, 1);
-  assert.equal(b.getParams().uncoveredRoads, 'sim');
+  assert.equal(b.getParams().uncoveredRoads, 'hide');
 });
 
 test('road body parsing retains the source request cancellation signal', async () => {

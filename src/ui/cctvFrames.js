@@ -1,3 +1,5 @@
+import { cctvMediumLabel } from '../sources/cctvTypes.js';
+
 export function _clearCctvFrame() {
   this._cctvFrameRequestToken += 1;
   if (this._cctvFramePreloader) {
@@ -88,25 +90,23 @@ export function _syncCctvSourceBadge(activeCamera, enabled) {
   if (!enabled || !activeCamera) {
     this._cctvSourceBadge.textContent = 'SOURCE · UNKNOWN';
     this._cctvSourceBadge.dataset.frameState = 'idle';
+    delete this._cctvSourceBadge.dataset.medium;
     return;
   }
   const hasDisplayedFrame =
     this._cctvFrameWrap?.classList.contains('has-frame');
-  const medium = activeCamera.isVideo
-    ? activeCamera.feedType === 'hls'
-      ? 'LIVE VIDEO'
-      : 'VIDEO CLIP'
-    : 'STILL IMAGE ONLY';
+  // Medium first (STILL IMAGE ONLY / VIDEO CLIP / LIVE VIDEO), then the
+  // upstream source-type tag and status.
+  const medium = cctvMediumLabel(activeCamera);
+  this._cctvSourceBadge.dataset.medium = medium;
   if (this._cctvFrame?.dataset.loading === 'true' && !hasDisplayedFrame) {
     this._cctvSourceBadge.textContent = `${medium} · LOADING`;
     this._cctvSourceBadge.dataset.frameState = 'loading';
-    this._cctvSourceBadge.dataset.medium = medium;
     return;
   }
-  if (this._cctvFrame?.dataset.error === 'true' && !hasDisplayedFrame && !activeCamera.isVideo) {
-    this._cctvSourceBadge.textContent = 'STILL IMAGE ONLY · UNAVAILABLE';
+  if (this._cctvFrame?.dataset.error === 'true' && !hasDisplayedFrame) {
+    this._cctvSourceBadge.textContent = `${medium} · UNAVAILABLE`;
     this._cctvSourceBadge.dataset.frameState = 'error';
-    this._cctvSourceBadge.dataset.medium = 'STILL IMAGE ONLY';
     return;
   }
   const kind = String(
@@ -115,5 +115,4 @@ export function _syncCctvSourceBadge(activeCamera, enabled) {
   const status = String(activeCamera.sourceStatus || 'unknown').toUpperCase();
   this._cctvSourceBadge.textContent = `${medium} · ${kind} · ${status}`;
   this._cctvSourceBadge.dataset.frameState = 'ready';
-  this._cctvSourceBadge.dataset.medium = medium;
 }

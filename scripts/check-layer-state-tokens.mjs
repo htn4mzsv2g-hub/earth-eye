@@ -46,6 +46,7 @@ export const PRE_LEDGER_LAYER_STATE_TOKENS = Object.freeze({
   'weather-radar': 'v',
   'weather-satellite': 'o',
   wind: 'k',
+  'weather-alerts': '0',
 });
 const LEDGER_PATH = 'src/data/layerStateTokenReservations.json';
 const SOURCE_PATH = 'src/data/layerState.js';

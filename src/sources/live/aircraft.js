@@ -68,6 +68,29 @@ export function normalizeReadsbAircraft(row, snapshotTimeMs) {
     typeCode: cleanText(row.t),
     registration: cleanText(row.r),
     operator: cleanText(row.ownOp),
+    // Provenance for the military colour: readsb/adsb.lol `dbFlags` bit 0 is
+    // the provider's own military database flag. Absent = unknown (neutral).
+    ...readsbMilitaryProvenance(row),
+  };
+}
+
+/**
+ * Provider-identified military status from readsb `dbFlags` (bit 0).
+ * @returns {{militaryFlag: boolean|null, militaryProvenance: string|null}}
+ */
+export function readsbMilitaryProvenance(row) {
+  const flags = finite(row?.dbFlags);
+  if (flags == null)
+    return {
+      militaryFlag: null,
+      militaryProvenance: 'listed by the adsb.lol military feed (/v2/mil)',
+    };
+  const military = (flags & 1) === 1;
+  return {
+    militaryFlag: military,
+    militaryProvenance: military
+      ? 'adsb.lol military database flag (dbFlags)'
+      : null,
   };
 }
 
@@ -172,9 +195,15 @@ export function readsbIdentities(payload) {
     payload?.ac,
     (row) => {
       const id = cleanText(row?.hex).toLowerCase();
-      return id ? { id } : null;
+      return id
+        ? { id, militaryFlag: readsbMilitaryProvenance(row).militaryFlag }
+        : null;
     },
     'aircraft identities',
   );
-  return admitted.records.map((record) => record.id);
+  // A row the provider explicitly marks as NOT military (dbFlags without
+  // bit 0) never classifies an aircraft as military.
+  return admitted.records
+    .filter((record) => record.militaryFlag !== false)
+    .map((record) => record.id);
 }

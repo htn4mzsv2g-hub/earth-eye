@@ -128,6 +128,12 @@ export function createFlightState({ source, services }) {
 
   flightState._trackedIcao = null;
 
+  /** @type {string|null} ICAO24 selected without camera follow (SELECT vs FOLLOW). */
+
+  flightState._selectedIcao = null;
+
+  flightState._trackedStaleAnnounced = null;
+
   flightState._pendingTrackingRestore = null;
 
   flightState._trackingIntentGeneration = 0;

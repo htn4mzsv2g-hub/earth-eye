@@ -199,6 +199,11 @@ test('OSRM routing preserves aliases, cache, span guards and upstream failure be
     profile: 'car',
     distanceM: 124,
     durationS: 80,
+    provider: 'osrm-demo',
+    classification: 'DEMO_FAIR_USE',
+    attribution: 'Routing: OSRM on the FOSSGIS servers · © OpenStreetMap contributors',
+    demoFairUse: true,
+    needsKey: true,
     geometry: [
       [-97, 30],
       [-97.01, 30.01],
@@ -287,6 +292,11 @@ test('steps are opt-in: the upstream is only asked for them when a caller is', a
     profile: 'car',
     distanceM: 124,
     durationS: 80,
+    provider: 'osrm-demo',
+    classification: 'DEMO_FAIR_USE',
+    attribution: 'Routing: OSRM on the FOSSGIS servers · © OpenStreetMap contributors',
+    demoFairUse: true,
+    needsKey: true,
     geometry: [
       [-97, 30],
       [-97.01, 30.01],

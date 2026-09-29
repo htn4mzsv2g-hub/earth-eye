@@ -4,6 +4,7 @@ import { DEFAULT_CCTV_SOURCE_FILE, CCTV_SOURCE_CACHE_MS } from './constants.js';
 import { allocateSourceCap, resolveCatalogCap } from './cap.js';
 import { loadGroundHeights, joinGroundHeights } from './groundHeights.js';
 import { normalizeSourceItem } from './normalize.js';
+import { packAllowed, packStatusLabel } from './permissions.js';
 import {
   loadAustinSourcesFromOpenData,
   loadCaltransSourcesFromOpenData,
@@ -18,10 +19,25 @@ import {
   loadNswSourcesFromOpenData,
   loadCalgarySourcesFromOpenData,
   loadDelDOTSourcesFromOpenData,
+  loadSeattleSourcesFromOpenData,
+  loadIowaSourcesFromOpenData,
+  loadIcelandSourcesFromOpenData,
+  loadHongKongSourcesFromOpenData,
+  loadQuebecSourcesFromOpenData,
+  loadLakeCountySourcesFromOpenData,
+  loadSingaporeSourcesFromOpenData,
+  loadAlertCaliforniaSourcesFromOpenData,
+  loadHpwrenSourcesFromOpenData,
 } from './sources.js';
 
-/** Env kill switch: unset or anything but "0" means enabled. */
-const envEnabled = (name) => String(process.env[name] || '1').trim() !== '0';
+/** Health state for a pack that is not being polled, from its status label. */
+function idlePackState(label, approvedState) {
+  if (label === 'KEY REQUIRED') return 'key required';
+  if (label === 'APPROVED') return approvedState;
+  if (label === 'PENDING REVIEW') return 'pending review';
+  if (label === 'OFF (COMMERCIAL-SAFE)') return 'off (commercial-safe)';
+  return 'held';
+}
 
 /**
  * Live open-data packs, in merge order. Adding a region is one entry here
@@ -31,65 +47,114 @@ const envEnabled = (name) => String(process.env[name] || '1').trim() !== '0';
  * kill switch.
  */
 const LIVE_PACKS = [
-  { name: 'austin', enabled: () => true, load: loadAustinSourcesFromOpenData },
+  {
+    name: 'austin',
+    enabled: () => packAllowed('austin'),
+    load: loadAustinSourcesFromOpenData,
+  },
+  {
+    name: 'seattle',
+    enabled: () => packAllowed('seattle'),
+    load: loadSeattleSourcesFromOpenData,
+  },
+  {
+    name: 'iowa',
+    enabled: () => packAllowed('iowa'),
+    load: loadIowaSourcesFromOpenData,
+  },
+  {
+    name: 'iceland',
+    enabled: () => packAllowed('iceland'),
+    load: loadIcelandSourcesFromOpenData,
+  },
+  {
+    name: 'hongkong',
+    enabled: () => packAllowed('hongkong'),
+    load: loadHongKongSourcesFromOpenData,
+  },
+  {
+    name: 'quebec',
+    enabled: () => packAllowed('quebec'),
+    load: loadQuebecSourcesFromOpenData,
+  },
+  {
+    name: 'lakecounty',
+    enabled: () => packAllowed('lakecounty'),
+    load: loadLakeCountySourcesFromOpenData,
+  },
+  {
+    name: 'singapore',
+    enabled: () => packAllowed('singapore'),
+    load: loadSingaporeSourcesFromOpenData,
+  },
+  {
+    name: 'alertcalifornia',
+    enabled: () => packAllowed('alertcalifornia'),
+    load: loadAlertCaliforniaSourcesFromOpenData,
+  },
+  {
+    name: 'hpwren',
+    enabled: () => packAllowed('hpwren'),
+    load: loadHpwrenSourcesFromOpenData,
+  },
   {
     name: 'caltrans',
-    enabled: () => true,
+    enabled: () => packAllowed('caltrans'),
     load: loadCaltransSourcesFromOpenData,
   },
   {
     name: 'tfl',
-    enabled: () => envEnabled('CCTV_TFL_ENABLED'),
+    enabled: () => packAllowed('tfl'),
     load: loadTflSourcesFromOpenData,
   },
   {
     name: 'ontario',
-    enabled: () => envEnabled('CCTV_ONTARIO_ENABLED'),
+    enabled: () => packAllowed('ontario'),
     load: loadOntarioSourcesFromOpenData,
   },
   {
     name: 'fintraffic',
-    enabled: () => envEnabled('CCTV_FINTRAFFIC_ENABLED'),
+    enabled: () => packAllowed('fintraffic'),
     load: loadFintrafficSourcesFromOpenData,
   },
   {
     name: 'drivebc',
-    enabled: () => envEnabled('CCTV_DRIVEBC_ENABLED'),
+    enabled: () => packAllowed('drivebc'),
     load: loadDriveBcSourcesFromOpenData,
   },
   {
     name: 'txdot',
-    enabled: () => envEnabled('CCTV_TXDOT_ENABLED'),
+    enabled: () => packAllowed('txdot'),
     load: loadTxdotSourcesFromOpenData,
   },
   {
     name: 'tallinn',
-    enabled: () => envEnabled('CCTV_TALLINN_ENABLED'),
+    enabled: () => packAllowed('tallinn'),
     load: loadTallinnSourcesFromCatalog,
   },
   {
     name: 'tarktee',
-    enabled: () => envEnabled('CCTV_TARKTEE_ENABLED'),
+    enabled: () => packAllowed('tarktee'),
     load: loadTarkteeSourcesFromDatex,
   },
   {
     name: 'warendorf',
-    enabled: () => envEnabled('CCTV_WARENDORF_ENABLED'),
+    enabled: () => packAllowed('warendorf'),
     load: loadWarendorfSourcesFromCatalog,
   },
   {
     name: 'nsw',
-    enabled: () => envEnabled('CCTV_NSW_ENABLED'),
+    enabled: () => packAllowed('nsw'),
     load: loadNswSourcesFromOpenData,
   },
   {
     name: 'calgary',
-    enabled: () => envEnabled('CCTV_CALGARY_ENABLED'),
+    enabled: () => packAllowed('calgary'),
     load: loadCalgarySourcesFromOpenData,
   },
   {
     name: 'deldot',
-    enabled: () => envEnabled('CCTV_DELDOT_ENABLED'),
+    enabled: () => packAllowed('deldot'),
     load: loadDelDOTSourcesFromOpenData,
   },
 ];
@@ -143,6 +208,18 @@ export function createCctvCatalog({ sourceRoot = process.cwd() } = {}) {
   /** @type {Promise<Array<object>>|null} In-flight refresh, shared by concurrent
    * callers so a post-TTL burst launches ONE refetch, not one per request. */
   let _cctvSourceInflight = null;
+  /** Per-pack source health (Earth Eye §2): state, last attempt/success. */
+  const _packHealth = new Map();
+  const recordPackHealth = (name, patch) => {
+    const prev = _packHealth.get(name) || {
+      pack: name,
+      lastAttemptAt: null,
+      lastSuccessAt: null,
+      count: 0,
+      error: null,
+    };
+    _packHealth.set(name, { ...prev, ...patch });
+  };
 
   /**
    * Assemble and cache the merged CCTV source list.
@@ -212,6 +289,42 @@ export function createCctvCatalog({ sourceRoot = process.cwd() } = {}) {
         .map((item) => normalizeSourceItem(item))
         .filter((item) => item.id),
     });
+    const attemptedAt = Date.now();
+    LIVE_PACKS.forEach((pack, index) => {
+      const label = packStatusLabel(pack.name);
+      if (!needsLiveSources || label !== 'APPROVED') {
+        const offState = idlePackState(label, 'not polled');
+        recordPackHealth(pack.name, { state: offState, status: label });
+        return;
+      }
+      const result = liveResults[index];
+      const count =
+        result?.status === 'fulfilled' && Array.isArray(result.value)
+          ? result.value.length
+          : 0;
+      if (count > 0) {
+        recordPackHealth(pack.name, {
+          state: 'online',
+          status: label,
+          lastAttemptAt: attemptedAt,
+          lastSuccessAt: Date.now(),
+          count,
+          error: null,
+        });
+      } else {
+        // A pack that returns nothing is a dead provider, not "no cameras".
+        recordPackHealth(pack.name, {
+          state: 'offline',
+          status: label,
+          lastAttemptAt: attemptedAt,
+          count: 0,
+          error:
+            result?.status === 'rejected'
+              ? String(result.reason?.message || result.reason || 'failed')
+              : 'Provider returned no cameras (download failed or empty; see server log)',
+        });
+      }
+    });
     const packs = [
       ...LIVE_PACKS.map((pack, index) =>
         normalizePack(
@@ -252,10 +365,28 @@ export function createCctvCatalog({ sourceRoot = process.cwd() } = {}) {
       console.warn(
         `[CCTV] source refresh returned empty; serving ${_cctvSourceCache.length} stale cameras`,
       );
+      for (const [name, h] of _packHealth)
+        if (h.state === 'offline' && h.lastSuccessAt)
+          recordPackHealth(name, { state: 'stale' });
     }
     _cctvSourceCacheAt = Date.now();
     return _cctvSourceCache;
   }
 
+  /** Frozen per-pack health snapshot (no catalog fetch). */
+  getCctvSources.health = () =>
+    LIVE_PACKS.map((pack) =>
+      Object.freeze(
+        _packHealth.get(pack.name) || {
+          pack: pack.name,
+          state: idlePackState(packStatusLabel(pack.name), 'not yet attempted'),
+          status: packStatusLabel(pack.name),
+          lastAttemptAt: null,
+          lastSuccessAt: null,
+          count: 0,
+          error: null,
+        },
+      ),
+    );
   return getCctvSources;
 }

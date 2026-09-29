@@ -1,9 +1,12 @@
+import { serviceBlockedByCommercialSafe } from '../policy-flags.js';
 import { fetchRegionalJson } from './http.js';
 import { normalizeRegionalWeather } from '../../../src/data/regionalModel.js';
 
 const WEATHER_EFFECTS_MAX_RESPONSE_BYTES = 512 * 1024;
 
 async function fetchRegionalWeather(point) {
+  // Open-Meteo's free API is non-commercial only.
+  if (serviceBlockedByCommercialSafe('open-meteo')) return null;
   const params = new URLSearchParams({
     latitude: point.latitude.toFixed(5),
     longitude: point.longitude.toFixed(5),

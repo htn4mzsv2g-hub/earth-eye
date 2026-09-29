@@ -48,9 +48,21 @@ export function selectEntityContext(entity) {
   store.selectedEntityId = contextId;
   store.selectedAt = Date.now();
   const record = store.entities.get(contextId);
-  window.dispatchEvent(
-    new CustomEvent('gev:entity-selected', { detail: record }),
-  );
+  try {
+    const EventCtor =
+      typeof window.CustomEvent === 'function'
+        ? window.CustomEvent
+        : typeof CustomEvent === 'function'
+          ? CustomEvent
+          : null;
+    if (EventCtor) {
+      window.dispatchEvent(
+        new EventCtor('gev:entity-selected', { detail: record }),
+      );
+    }
+  } catch {
+    /* Node / non-DOM hosts still keep the selection record */
+  }
   return record;
 }
 
@@ -192,9 +204,22 @@ export function removeEntityContextsForLayer(layerId, { retainIds } = {}) {
 
 export function isContextRecordActive(record, dataManager = null) {
   if (!record) return false;
-  if (record.entity?.show === false) return false;
-  if (record.dataSource && record.dataSource.show === false) return false;
-  if (dataManager && record.layerId && !dataManager.isEnabled(record.layerId))
+  // Synthetic / list / place / World Events carriers are authoritative without Cesium.
+  const synthetic =
+    Boolean(record.entity?.__eeSynthetic) ||
+    record.entity?.__gevWorldEventId != null;
+  if (!synthetic && record.entity?.show === false) return false;
+  if (!synthetic && record.dataSource && record.dataSource.show === false)
     return false;
+  // Gate on layer enablement only when the layer is registered. Unknown
+  // layers (place, world-events, camera-list) must not clear selection.
+  if (dataManager && record.layerId && typeof dataManager.isEnabled === 'function') {
+    const known =
+      (typeof dataManager.layers?.has === 'function' &&
+        dataManager.layers.has(record.layerId)) ||
+      (typeof dataManager.getLayerLifecycleState === 'function' &&
+        dataManager.getLayerLifecycleState(record.layerId) != null);
+    if (known && !dataManager.isEnabled(record.layerId)) return false;
+  }
   return true;
 }

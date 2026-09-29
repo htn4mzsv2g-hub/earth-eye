@@ -1,6 +1,7 @@
 /** Authored project defaults and legacy migrations; no editor or playback state. */
 import { SCENE_DOCUMENT_VERSION } from '../director/document.js';
 import { SCENE_RECIPES } from './recipes.js';
+import { isDevOnlySceneBlocked } from '../policy/devFlags.js';
 import { MAP_STACKS } from '../maps/catalog.js';
 import {
   BLOOM_INTENSITY_DEFAULT,
@@ -385,7 +386,10 @@ export function normalizeProject(rawProject) {
       };
     })
     // Keep scenes that have shots or at least a title
-    .filter((scene) => scene.shots.length > 0 || scene.title);
+    .filter((scene) => scene.shots.length > 0 || scene.title)
+    // Earth Eye: drop the dev-only simulated-traffic scenes from stored and
+    // imported projects too (production never shows them).
+    .filter((scene) => !isDevOnlySceneBlocked(scene.id));
 
   return {
     version: PROJECT_VERSION,

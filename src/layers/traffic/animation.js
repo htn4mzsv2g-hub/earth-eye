@@ -35,6 +35,9 @@ export function createAnimation({
    */
 
   function spawnDotsForRoad(road, altitude, budgetCount = null) {
+    // Production: never spawn simulated vehicle dots (OPERATOR UX). Live TomTom
+    // flow only — road conditions, not fake cars. Dev may still use sim.
+    if (!layerState._liveMode && import.meta.env.PROD) return;
     // Live flow styling (`road.flow` only exists in live mode; keyless path is
     // byte-identical): closures spawn nothing, congestion colors/slows dots.
     const flow = layerState._liveMode ? road.flow : null;

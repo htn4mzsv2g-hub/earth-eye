@@ -32,9 +32,16 @@ export function createIngestion({
                 signal: updateSignal,
               });
               if (!res.ok) return { ...groupDef, entries: [], ok: false };
-              const entries = parts.orbits.parseTLE(res.text);
+              const entries = parts.orbits.parseCatalog(res.text);
               updateSignal.throwIfAborted();
-              return { ...groupDef, entries, ok: entries.length > 0 };
+              return {
+                ...groupDef,
+                entries,
+                ok: entries.length > 0,
+                tleSource: res.tleSource || 'celestrak',
+                tleCache: res.tleCache || '',
+                fetchedAt: res.fetchedAt || '',
+              };
             } catch (error) {
               if (updateSignal.aborted || error?.name === 'AbortError')
                 throw error;
@@ -73,6 +80,29 @@ export function createIngestion({
         layerState._lastError = failed.length
           ? `${failed.length} CelesTrak group${failed.length === 1 ? '' : 's'} unavailable`
           : null;
+        // Earth Eye: say so when a group came from the AMSAT fallback.
+        const fallbackGroups = results
+          .filter((r) => r.ok && r.tleSource && r.tleSource !== 'celestrak')
+          .map((r) => r.tag);
+        const staleGroups = results.filter(
+          (r) => r.ok && r.tleCache === 'STALE-ERROR',
+        );
+        const oldest = staleGroups
+          .map((r) => Date.parse(r.fetchedAt))
+          .filter(Number.isFinite)
+          .sort((a, b) => a - b)[0];
+        const notes = [];
+        if (fallbackGroups.length)
+          notes.push(
+            `AMSAT amateur TLE fallback for ${fallbackGroups.join(', ')} (CelesTrak unreachable)`,
+          );
+        if (staleGroups.length)
+          notes.push(
+            `cached CelesTrak TLEs for ${staleGroups.map((r) => r.tag).join(', ')}${
+              oldest ? ` fetched ${new Date(oldest).toISOString()}` : ''
+            } (CelesTrak unreachable)`,
+          );
+        layerState._fallbackNote = notes.length ? notes.join('; ') : null;
 
         // Clear existing
         layerState._pointCollection.removeAll();
@@ -105,18 +135,23 @@ export function createIngestion({
         const seen = new Set();
 
         for (const entry of allEntries) {
-          const satrec = twoline2satrec(entry.line1, entry.line2);
+          let satrec = entry.satrec || null;
+          if (!satrec && entry.line1 && entry.line2) {
+            satrec = twoline2satrec(entry.line1, entry.line2);
+          }
           if (!satrec || satrec.error !== 0) continue;
 
-          const noradId = Number(satrec.satnum);
-          if (seen.has(noradId)) continue;
+          const noradId = Number(entry.noradId || satrec.satnum);
+          if (!Number.isFinite(noradId) || seen.has(noradId)) continue;
           seen.add(noradId);
 
-          // Store in catalog
+          // Store in catalog — element epoch age is provenance, not "live telemetry".
           layerState._catalog.set(noradId, {
             name: entry.name,
             satrec,
             group: entry.group,
+            format: entry.format || (entry.line1 ? 'tle' : 'omm'),
+            epochMs: entry.epochMs ?? null,
           });
 
           // Propagate initial position

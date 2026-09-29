@@ -21,6 +21,9 @@ import { createSurfaceKeyboard } from './ui/surfaceKeyboard.js';
 // Choosing a mission is deliberately NOT durable suppression: picking a mission
 // is enthusiasm, not "never show me this again".
 
+/** Earth Eye: no landing surface unless explicitly requested with ?welcome=1. */
+export const ATLAS_LAUNCHER_DEFAULT_ON = false;
+
 /** Durable suppression. Written ONLY by the "Don't show this again" checkbox. */
 export const FIRST_RUN_STORAGE_KEY = 'gev:first-run-mission:v1';
 /** Per-session dismissal. Written by every close path; scoped to sessionStorage. */
@@ -200,6 +203,7 @@ function removeStored(kind, injected, key) {
  * @param {{getItem: Function}|null} [input.storage] Durable (localStorage).
  * @param {{getItem: Function}|null} [input.sessionStorageRef] Per-session.
  * @param {{search?: string}|null} [input.location]
+ * @param {boolean} [input.launcherDefaultOn] Earth Eye: upstream show-by-default policy switch.
  * @returns {boolean}
  */
 export function shouldShowFirstRun({
@@ -207,12 +211,17 @@ export function shouldShowFirstRun({
   storage,
   sessionStorageRef,
   location = globalThis.location,
+  launcherDefaultOn = ATLAS_LAUNCHER_DEFAULT_ON,
 } = {}) {
   if (hasShareState) return false;
   const params = new URLSearchParams(location?.search || '');
   if (params.get('welcome') === '0') return false;
   // The demo/support escape hatch outranks both suppressions on purpose.
   if (params.get('welcome') === '1') return true;
+  // Earth Eye opens straight into the console: the quick-start launcher is
+  // opt-in only (`?welcome=1`). The stored suppression flags are still read
+  // and written so the upstream behaviour can be restored by flipping this.
+  if (!launcherDefaultOn) return false;
   if (readStored('local', storage, FIRST_RUN_STORAGE_KEY) === 'suppressed')
     return false;
   if (

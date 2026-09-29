@@ -293,6 +293,8 @@ export function createWindLayer({
           coverage: 'Global · 1° grid',
           validTime: manifest?.cycle?.validIso,
           issuedTime: manifest?.cycle?.runIso,
+          productKind: 'forecast',
+          productKindLabel: 'Model forecast (not observed imagery)',
           detail: `${model === 'ifs' ? 'ECMWF IFS' : 'GFS'} forecast · ${valid || 'Unavailable'}`,
           status: loading
             ? 'Loading forecast'

@@ -32,13 +32,41 @@ import * as Cesium from 'cesium';
 
 export const BILLBOARD_SCALE = 0.7;
 
-/** @constant {Cesium.Color} Default amber tint for untracked military billboards */
+/**
+ * Earth Eye (spec §14-15): military is GREEN only when the provider itself
+ * identifies the aircraft as military: adsb.lol lists it on /v2/mil and its
+ * `dbFlags` military bit is set (or absent). A record the provider marks as
+ * not military (`militaryFlag === false`) stays neutral, as does every
+ * aircraft outside the provider's military list. Colour is never inferred
+ * from movement or callsign.
+ */
+export const MILITARY_GREEN_CSS = '#4ADE80';
+export const MILITARY_TRACKED_CSS = '#BBF7D0';
+export const MILITARY_UNVERIFIED_CSS = '#CBD5E1';
 
-export const MIL_ICON_COLOR = Cesium.Color.fromCssColorString('#FFB800');
+/** @constant {Cesium.Color} Provider-identified military billboards (green) */
 
-/** @constant {Cesium.Color} Lighter amber tint applied to the actively tracked aircraft */
+export const MIL_ICON_COLOR =
+  Cesium.Color.fromCssColorString(MILITARY_GREEN_CSS);
 
-export const TRACKED_ICON_COLOR = Cesium.Color.fromCssColorString('#FFD166');
+/** @constant {Cesium.Color} Lighter green for the actively tracked aircraft */
+
+export const TRACKED_ICON_COLOR =
+  Cesium.Color.fromCssColorString(MILITARY_TRACKED_CSS);
+
+/** @constant {Cesium.Color} Neutral tint: no provider military flag */
+
+export const UNVERIFIED_ICON_COLOR = Cesium.Color.fromCssColorString(
+  MILITARY_UNVERIFIED_CSS,
+);
+
+/**
+ * Billboard/model colour from provenance only.
+ * @param {{militaryFlag?: boolean|null}|undefined} meta Record metadata.
+ */
+export function militaryIconColor(meta) {
+  return meta?.militaryFlag === false ? UNVERIFIED_ICON_COLOR : MIL_ICON_COLOR;
+}
 
 // --- Ground traffic (owner reversal 2026-07-03; mirror of flights.js) ---------------
 // adsb.lol/readsb flags ground traffic with alt_baro === "ground" (no separate
@@ -169,7 +197,7 @@ export const TRACKED_BILLBOARD_SCALE_BY_DISTANCE = new Cesium.NearFarScalar(
 
 /** @constant {string} Military trail hue (PRD F4, pinned). */
 
-export const TRAIL_COLOR = '#FFB800';
+export const TRAIL_COLOR = MILITARY_GREEN_CSS;
 
 /** @constant {number} Combined cap on trail vertices (backfill + live accumulation). */
 

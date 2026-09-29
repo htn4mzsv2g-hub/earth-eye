@@ -201,6 +201,22 @@ export async function initKeySetup({
   const doFetch = fetchImpl || globalThis.fetch?.bind(globalThis);
 
   let status = null;
+  // Earth Eye: `vite preview` never installs the POWER UP endpoints, so ask
+  // the read-only Earth Eye status route first and skip a guaranteed 404 there.
+  try {
+    const probe = await doFetch('/api/atlas/provider-status', {
+      cache: 'no-store',
+      signal: lifetime.signal,
+    });
+    const probed = probe?.ok ? await probe.json() : null;
+    if (probed && probed.mode === 'preview') {
+      destroy();
+      return null;
+    }
+  } catch {
+    /* fall through to the upstream probe */
+  }
+  if (disposed) return null;
   try {
     const response = await doFetch('/api/setup/status', {
       cache: 'no-store',

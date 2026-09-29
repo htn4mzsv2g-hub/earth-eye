@@ -80,6 +80,11 @@ export class CockpitViewController {
     this.lastCompassSignature = '';
     this.entry = document.getElementById('cockpit-entry');
     this.tr3bToggle = document.getElementById('tr3b-toggle');
+    // Earth Eye: TR-3B is dev-only; production removes the control entirely.
+    if (this.tr3bToggle && services?.toggleTr3b?.tr3bUnavailable) {
+      this.tr3bToggle.remove();
+      this.tr3bToggle = null;
+    }
     this._tr3bSignature = null;
     this.mapViewButton = document.getElementById('map-view-switch');
     this.resetGlobeButton = document.getElementById('cockpit-reset-globe');

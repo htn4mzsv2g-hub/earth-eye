@@ -621,6 +621,7 @@ export function createTracking({
     skipViewerUntrack = false,
     { evicted = false, origin = 'programmatic' } = {},
   ) {
+    flightState._selectedIcao = null;
     flightState._trackedCameraFrameStop?.();
     flightState._trackedCameraFrameStop = null;
     if (!flightState._trackedIcao) {
@@ -782,6 +783,19 @@ export function createTracking({
       '#39d0ff',
     );
     refreshTrackedReadout(flightState._trackedEntity);
+    // UX-2: surface STALE/LIVE transitions for the mobile object card + toasts.
+    const staleNow = Boolean(
+      flightState.records.missingPolls.get(icao24) || flightState.feed._backoff,
+    );
+    if (flightState._trackedStaleAnnounced !== staleNow) {
+      flightState._trackedStaleAnnounced = staleNow;
+      _emitAwarenessEvent('gev:awareness-subject-stale', {
+        layerId: 'flights',
+        id: icao24,
+        stale: staleNow,
+        following: true,
+      });
+    }
     // The readout and the context slot describe the same contact — refresh them
     // together so voice never narrates a fix the card has already replaced.
     refreshTrackedSubjectContext(_contextSubjectMetadata(icao24));
@@ -894,6 +908,7 @@ export function createTracking({
     if (!bb || !info) return;
 
     flightState._trackedIcao = icao24;
+    flightState._selectedIcao = icao24; // FOLLOW implies SELECT (sticky across feed flaps)
     _resetTrackedSelectionState(); // fresh selection: enter at the ENTER ceiling, full load-retry budget
     flightState._cachedDRFrame = -1;
     flightState._lastTrackedRotation = bb.rotation || 0;
@@ -1126,7 +1141,31 @@ export function createTracking({
    * @param {Cesium.Viewer} viewer
    */
 
-  function _installClickHandler(viewer) {
+  /**
+   * SELECT (no camera follow): highlight + context only.
+   * FOLLOW is `_trackFlight` — camera tracks live dead-reckoned position.
+   */
+  function _selectFlight(icao24, { origin = 'user' } = {}) {
+    const bb = flightState._billboards.get(icao24);
+    const info = flightState.records.data.get(icao24);
+    if (!bb || !info) return false;
+    // Clear prior follow so SELECT is not a silent FOLLOW.
+    if (flightState._trackedIcao && flightState._trackedIcao !== icao24) {
+      _clearTracking(false, { origin });
+    } else if (flightState._trackedIcao === icao24) {
+      // Already following this contact — keep follow (idempotent).
+      _publishTrackedSelection(icao24, origin);
+      return true;
+    }
+    flightState._selectedIcao = icao24;
+    _publishTrackedSelection(icao24, origin);
+    console.log(
+      `[Data:Flights] Selected ${parts.queries._contactLabel(icao24, info)} (${icao24}) — FOLLOW to track live`,
+    );
+    return true;
+  }
+
+    function _installClickHandler(viewer) {
     if (flightState._clickHandler) return; // already installed
 
     // Cross-layer untrack: if ANOTHER layer (military, vessels, …) grabs the follow-camera, drop our
@@ -1192,7 +1231,15 @@ export function createTracking({
           flightState._billboards.has(billboard.id)
         ) {
           _cancelPendingTrackingRestore();
-          _trackFlight(billboard.id, { origin: 'user' });
+          // SELECT vs FOLLOW: first tap selects; tap again (or TRACK→FOLLOW) follows.
+          if (
+            flightState._selectedIcao === billboard.id &&
+            flightState._trackedIcao !== billboard.id
+          ) {
+            _trackFlight(billboard.id, { origin: 'user' });
+          } else if (flightState._trackedIcao !== billboard.id) {
+            _selectFlight(billboard.id, { origin: 'user' });
+          }
           return;
         }
         // Some CesiumJS versions surface the id as a string on picked.id instead
@@ -1202,7 +1249,14 @@ export function createTracking({
           flightState._billboards.has(picked.id)
         ) {
           _cancelPendingTrackingRestore();
-          _trackFlight(picked.id, { origin: 'user' });
+          if (
+            flightState._selectedIcao === picked.id &&
+            flightState._trackedIcao !== picked.id
+          ) {
+            _trackFlight(picked.id, { origin: 'user' });
+          } else if (flightState._trackedIcao !== picked.id) {
+            _selectFlight(picked.id, { origin: 'user' });
+          }
           return;
         }
       }
@@ -1223,6 +1277,15 @@ export function createTracking({
       if (flightState._trackedIcao) {
         _cancelPendingTrackingRestore();
         _clearTracking(false, { origin: 'user' });
+      } else if (flightState._selectedIcao) {
+        // SELECT-only (no FOLLOW): clear highlight + context so the card goes away.
+        const cleared = flightState._selectedIcao;
+        flightState._selectedIcao = null;
+        clearTrackedSubjectContext('flights');
+        _emitAwarenessEvent('gev:awareness-subject-cleared', {
+          layerId: 'flights',
+          id: cleared,
+        });
       }
     });
 
@@ -1258,6 +1321,7 @@ export function createTracking({
     _refreshTr3bForStyle,
     _routeIsPlausible,
     _trackFlight,
+    _selectFlight,
     _onMilitaryActiveChange,
     _onKeyDown,
     _installClickHandler,

@@ -1,0 +1,91 @@
+{
+  "ok": true,
+  "startedAt": "2026-09-29T08:15:15.179Z",
+  "finishedAt": "2026-09-29T08:15:16.523Z",
+  "label": "unit-matrix; emulation only; not physical iPhone",
+  "constraints": {
+    "mapbox": "not_wired",
+    "broadcastify": "HELD",
+    "liveatc": "blocked",
+    "tomtomKey": "owner-separate; not invented"
+  },
+  "results": [
+    {
+      "id": "policy-exclusions",
+      "files": [
+        "src/stage2Policy.test.mjs",
+        "src/comms/providers.test.mjs"
+      ],
+      "ok": true,
+      "pass": 14,
+      "fail": 0,
+      "exitCode": 0,
+      "emulation": true,
+      "physicalIphone": false
+    },
+    {
+      "id": "mobile-perf-profile",
+      "files": [
+        "src/app/mobileGpuProfile.test.mjs",
+        "src/renderGovernor.test.mjs"
+      ],
+      "ok": true,
+      "pass": 12,
+      "fail": 0,
+      "exitCode": 0,
+      "emulation": true,
+      "physicalIphone": false
+    },
+    {
+      "id": "permitted-history",
+      "files": [
+        "server/collection/retentionPolicy.test.mjs",
+        "server/providers/workspaces/store.test.mjs"
+      ],
+      "ok": true,
+      "pass": 8,
+      "fail": 0,
+      "exitCode": 0,
+      "emulation": true,
+      "physicalIphone": false
+    },
+    {
+      "id": "nav2-route-provider",
+      "files": [
+        "server/providers/places/routeProvider.test.mjs"
+      ],
+      "ok": true,
+      "pass": 8,
+      "fail": 0,
+      "exitCode": 0,
+      "emulation": true,
+      "physicalIphone": false
+    },
+    {
+      "id": "owner-hardening",
+      "files": [
+        "server/entitlements/ownerEntitlements.test.mjs",
+        "server/entitlements/auditLog.test.mjs",
+        "server/hardening/cspAudit.test.mjs"
+      ],
+      "ok": true,
+      "pass": 8,
+      "fail": 0,
+      "exitCode": 0,
+      "emulation": true,
+      "physicalIphone": false
+    },
+    {
+      "id": "data-sources-patch",
+      "files": [
+        "src/atlas/dataSourcesPatch.test.mjs"
+      ],
+      "ok": true,
+      "pass": 2,
+      "fail": 0,
+      "exitCode": 0,
+      "emulation": true,
+      "physicalIphone": false
+    }
+  ]
+}

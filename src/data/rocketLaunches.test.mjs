@@ -1014,7 +1014,7 @@ test('finds a newly launched payload in the active TLE fallback catalog', () => 
   assert.equal(typeof track?.positionAt, 'function');
 });
 
-test('real mission build, select, refresh, deselect, disable, and destroy paths publish no native labels', async () => {
+test('real mission build, select, refresh, deselect, disable, and destroy paths publish no native labels', async (t) => {
   const realDocument = globalThis.document;
   const realFetch = globalThis.fetch;
   const realHtmlCanvasElement = globalThis.HTMLCanvasElement;
@@ -1154,6 +1154,13 @@ test('real mission build, select, refresh, deselect, disable, and destroy paths 
     return { ok: true, json: async () => launchPayload() };
   };
   _setRocketMissionOverlayHostForTest(host);
+  // Earth Eye: reconstructed ascent/replay geometry is dev-only; this label
+  // guard exercises the full upstream build path, so it opts in explicitly.
+  const priorDevFlag = globalThis.__EE_DEV_EXCLUDED__;
+  globalThis.__EE_DEV_EXCLUDED__ = true;
+  t.after(() => {
+    globalThis.__EE_DEV_EXCLUDED__ = priorDevFlag;
+  });
   let initialized = false;
   try {
     rocketLaunchesLayer.init(viewer);
@@ -1418,4 +1425,174 @@ test('missing payload details stay unknown without inventing mass or classificat
   }
   const [launch] = normalizeRocketLaunches([{ id: 'missing', pad: { latitude: 1, longitude: 2 }, net: '2026-07-20T10:00:00Z' }], NOW);
   assert.deepEqual(launch.payloads, []);
+});
+
+test('production: a launch never shows a reconstructed ascent, replay, stage arcs or estimated orbit as live', async (t) => {
+  const realDocument = globalThis.document;
+  const realFetch = globalThis.fetch;
+  const realHtmlCanvasElement = globalThis.HTMLCanvasElement;
+  const realHtmlImageElement = globalThis.HTMLImageElement;
+  const realImageBitmap = globalThis.ImageBitmap;
+  const realOffscreenCanvas = globalThis.OffscreenCanvas;
+  const listeners = new Map();
+  const context = {
+    strokeStyle: '',
+    lineWidth: 1,
+    lineCap: '',
+    shadowColor: '',
+    shadowBlur: 0,
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    stroke() {},
+  };
+  class FakeElement {
+    constructor(tagName = 'div') {
+      this.tagName = tagName.toUpperCase();
+      this.children = [];
+      this.parentElement = null;
+      this.style = { setProperty() {} };
+      this.classList = { add() {}, remove() {}, toggle() {} };
+      this.dataset = {};
+      this.hidden = false;
+      this.clientWidth = 1600;
+      this.clientHeight = 900;
+      this.width = 1600;
+      this.height = 900;
+      this.disableRootEvents = false;
+    }
+
+    addEventListener(type, handler) { listeners.set(`${this.tagName}:${type}`, handler); }
+    removeEventListener(type) { listeners.delete(`${this.tagName}:${type}`); }
+    appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
+    remove() {
+      if (this.parentElement) {
+        this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
+      }
+      this.parentElement = null;
+    }
+    setAttribute() {}
+    // This fixture has no parsed DOM children; it exercises native label
+    // ownership, not the replay overlay's separately rendered icon children.
+    querySelectorAll() { return []; }
+    querySelector() { return null; }
+    getBoundingClientRect() { return { left: 0, top: 0, width: 1600, height: 900 }; }
+    getContext() { return this.tagName === 'CANVAS' ? context : null; }
+  }
+  const body = new FakeElement('body');
+  const document = {
+    body,
+    onmousewheel: undefined,
+    createElement: (tagName) => new FakeElement(tagName),
+    getElementById: () => null,
+    addEventListener(type, handler) { listeners.set(`document:${type}`, handler); },
+    removeEventListener(type) { listeners.delete(`document:${type}`); },
+  };
+  const canvas = new FakeElement('canvas');
+  const dataSources = [];
+  const camera = {
+    positionCartographic: null,
+    positionWC: Cesium.Cartesian3.fromDegrees(-80.604, 28.608, 18_000_000),
+    cancelFlight() {},
+    lookAtTransform() {},
+  };
+  const scene = {
+    canvas,
+    camera,
+    frameState: { frameNumber: 1 },
+    postRender: new Cesium.Event(),
+    preRender: new Cesium.Event(),
+    preUpdate: new Cesium.Event(),
+    primitives: { add: (primitive) => primitive, remove: () => true },
+    drillPick: () => [],
+  };
+  const viewer = {
+    camera,
+    scene,
+    dataSources: {
+      add(dataSource) { dataSources.push(dataSource); return dataSource; },
+      remove(dataSource) {
+        const index = dataSources.indexOf(dataSource);
+        if (index >= 0) dataSources.splice(index, 1);
+        return index >= 0;
+      },
+    },
+    selectedEntity: undefined,
+  };
+  const hostCalls = [];
+  const host = {
+    setEntries: (...args) => hostCalls.push(['entries', ...args]),
+    setVisible: (...args) => hostCalls.push(['visible', ...args]),
+    clearSource: (...args) => hostCalls.push(['clear', ...args]),
+  };
+  const launchTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  let launchName = 'Falcon 9 | Gauntlet Payload';
+  const launchPayload = () => ({ results: [{
+    id: 'mission-runtime',
+    name: launchName,
+    net: launchTime,
+    status: { name: 'Launch Successful' },
+    pad: {
+      latitude: '28.608',
+      longitude: '-80.604',
+      name: 'Space Launch Complex 39A',
+    },
+    rocket: {
+      launcher_stage: [{
+        id: 'booster-1',
+        type: 'Core',
+        landing: {
+          attempt: true,
+          success: true,
+          downrange_distance: 600,
+          landing_location: { latitude: '30.1', longitude: '-76.2' },
+        },
+      }],
+    },
+    mission: {
+      name: 'Gauntlet Payload',
+      orbit: { name: 'Low Earth Orbit' },
+    },
+  }] });
+  globalThis.document = document;
+  globalThis.HTMLCanvasElement = FakeElement;
+  globalThis.HTMLImageElement = class {};
+  globalThis.ImageBitmap = class {};
+  globalThis.OffscreenCanvas = class {};
+  globalThis.fetch = async (url) => {
+    if (url === '/api/celestrak/active') {
+      return { ok: true, text: async () => '' };
+    }
+    assert.equal(url, '/api/launches');
+    return { ok: true, json: async () => launchPayload() };
+  };
+  _setRocketMissionOverlayHostForTest(host);
+  const priorDevFlag = globalThis.__EE_DEV_EXCLUDED__;
+  globalThis.__EE_DEV_EXCLUDED__ = false;
+  let initialized = false;
+  try {
+    rocketLaunchesLayer.init(viewer);
+    initialized = true;
+    await rocketLaunchesLayer.enable();
+    await rocketLaunchesLayer.update();
+    const ids = dataSources[0].entities.values.map((e) => e.id);
+    _setSelectedRocketMissionForTest('mission-runtime');
+    const selected = hostCalls.findLast(([type, sourceId]) => (
+      type === 'entries' && sourceId === ROCKET_MISSION_SELECTED_OVERLAY_SOURCE_ID
+    ));
+    const titles = selected ? selected[2].map(({ title }) => title) : [];
+    assert.deepEqual(ids, ['rocket-launch:mission-runtime'], 'only the real launch-site marker');
+    assert.ok(!ids.some((id) => /rocket-(trajectory|vehicle|transfer|satellite|stage)/.test(id)));
+    assert.deepEqual(titles, ['FALCON 9'], 'no STAGE RE-ENTRY / EST. ORBIT POSITION / PROJECTED ORBIT labels');
+  } finally {
+    globalThis.__EE_DEV_EXCLUDED__ = priorDevFlag;
+    if (initialized) await rocketLaunchesLayer.destroy(viewer);
+    _setRocketMissionOverlayHostForTest();
+    globalThis.fetch = realFetch;
+    globalThis.document = realDocument;
+    globalThis.HTMLCanvasElement = realHtmlCanvasElement;
+    globalThis.HTMLImageElement = realHtmlImageElement;
+    globalThis.ImageBitmap = realImageBitmap;
+    globalThis.OffscreenCanvas = realOffscreenCanvas;
+  }
 });

@@ -6,6 +6,14 @@ import {
   normalizeRouteProfile,
   projectRouteResult,
 } from '../../../src/data/placeProviderPayloads.js';
+import {
+  resolveRouteProvider,
+  routeProviderStatus,
+  ROUTE_PROVIDER_IDS,
+} from './routeProvider.js';
+import { fetchTomTomRoute } from './tomtomOrbisRoute.js';
+import { createTomTomMonthlyBudget } from './tomtomBudget.js';
+import { earthEyeUserAgent } from '../../hardening/outboundUa.js';
 
 /**
  * OSM routing (FOSSGIS OSRM) cache: profile|coords ->
@@ -26,6 +34,17 @@ const ROUTE_CACHE_MS = 600000;
  * @type {Map<string, Promise<{payload: object|null, error: string|null}>>}
  */
 const _routeInflight = new Map();
+
+/** Shared monthly TomTom free-tier governor (routing category). */
+let _sharedTomTomBudget = null;
+function tomtomBudget() {
+  if (!_sharedTomTomBudget) _sharedTomTomBudget = createTomTomMonthlyBudget();
+  return _sharedTomTomBudget;
+}
+export function _resetTomTomBudgetForTest() {
+  _sharedTomTomBudget = null;
+}
+
 
 /** Hard cap on the OSRM route response we will buffer. */
 const ROUTE_MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -176,7 +195,9 @@ async function fetchRoute({
         // The endpoint is configured above; a redirect is the one way out of
         // it, so it is refused rather than followed.
         redirect: 'error',
-        headers: { 'User-Agent': 'gods-eye-view/dev (local)' },
+        headers: {
+          'User-Agent': earthEyeUserAgent('places'),
+        },
       }),
     );
     if (upstreamRes.status === 429) {
@@ -217,15 +238,39 @@ async function fetchRoute({
 
 export function installRouteMiddleware(
   middlewares,
-  { endpoints = {}, fetchImpl = (...args) => fetch(...args) } = {},
+  {
+    endpoints = {},
+    fetchImpl = (...args) => fetch(...args),
+    env = process.env,
+    budget = null,
+  } = {},
 ) {
   const _routeCache = new Map();
+  const getBudget = () => budget || tomtomBudget();
 
-  // Real OSM routing via the public FOSSGIS OSRM servers (foot/car/bike).
+  // NAV-2 status (no spend): which provider would handle routes + budget snapshot.
+  middlewares.use('/api/route/status', (req, res) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Method not allowed' }));
+      return;
+    }
+    const snap = getBudget().snapshot();
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        ...routeProviderStatus(env),
+        budget: snap,
+      }),
+    );
+  });
+
   // GET /api/route?profile=foot|car|bike&coords=lon,lat;lon,lat[;...][&steps=1]
-  // `steps=1` adds turn-by-turn maneuvers (src/data/routeSteps.js) and is the
-  // only shape that asks the upstream for them. A response WITHOUT steps is
-  // byte for byte what this endpoint has always returned.
+  // Provider: TomTom Orbis (keyed, car) or OSRM DEMO_FAIR_USE. Mapbox not wired.
   middlewares.use('/api/route', async (req, res) => {
     const fail = (msg) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -289,16 +334,34 @@ export function installRouteMiddleware(
       }
       if (totalKm > ROUTE_MAX_TOTAL_KM) return fail('route too long');
       const coords = clean.join(';');
-      const cacheKey = `${profile}|${coords}`;
+      const provider = resolveRouteProvider({ profile, env });
+      const cacheKey = `${provider.id}|${profile}|${coords}`;
       const base =
         endpoints[profile] ||
         `https://routing.openstreetmap.de/routed-${profile}`;
       const now = Date.now();
       const wantSteps = url.searchParams.get('steps') === '1';
+      const annotate = (payload) => {
+        if (!payload || typeof payload !== 'object') return payload;
+        return {
+          ...payload,
+          provider: payload.provider || provider.id,
+          classification:
+            payload.classification || provider.classification,
+          attribution: payload.attribution || provider.attribution,
+          demoFairUse:
+            payload.demoFairUse !== undefined
+              ? payload.demoFairUse
+              : provider.demoFairUse,
+          needsKey: Boolean(provider.needsKey),
+        };
+      };
       // A caller that did not ask for maneuvers never sees them, even when the
       // cached entry carries them for someone else.
-      const shapePayload = (payload) =>
-        wantSteps ? payload : { ...payload, steps: undefined };
+      const shapePayload = (payload) => {
+        const shaped = wantSteps ? payload : { ...payload, steps: undefined };
+        return annotate(shaped);
+      };
       const cached = _routeCache.get(cacheKey);
       if (
         cached &&
@@ -309,21 +372,77 @@ export function installRouteMiddleware(
         res.end(JSON.stringify(shapePayload(cached.payload)));
         return;
       }
-      const inflightKey = `${base}|${cacheKey}|${wantSteps ? 's' : 'n'}`;
+      const inflightKey = `${provider.id}|${base}|${cacheKey}|${wantSteps ? 's' : 'n'}`;
       // A stepless request can also ride a stepful call already in flight —
       // it just drops the maneuvers on the way out.
       let pending =
         _routeInflight.get(inflightKey) ||
-        (wantSteps ? null : _routeInflight.get(`${base}|${cacheKey}|s`));
+        (wantSteps ? null : _routeInflight.get(`${provider.id}|${base}|${cacheKey}|s`));
       if (!pending) {
-        pending = fetchRoute({
-          profile,
-          osrmProfile,
-          base,
-          coords,
-          withSteps: wantSteps,
-          fetchImpl,
-        });
+        if (provider.id === ROUTE_PROVIDER_IDS.TOMTOM_ORBIS) {
+          const admission = getBudget().admit('routing');
+          if (!admission.ok) {
+            res.writeHead(429, {
+              'Content-Type': 'application/json',
+              'Retry-After': '3600',
+              'Cache-Control': 'no-store',
+            });
+            res.end(
+              JSON.stringify({
+                ok: false,
+                error: admission.error,
+                note: admission.note,
+                budget: admission.status,
+                provider: provider.id,
+                classification: 'BUDGET_EXCEEDED',
+                needsKey: false,
+              }),
+            );
+            return;
+          }
+          const key = String(env.TOMTOM_API_KEY || '').trim();
+          pending = (async () => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+            try {
+              const result = await fetchTomTomRoute({
+                pts,
+                profile,
+                withSteps: wantSteps,
+                key,
+                fetchImpl,
+                signal: controller.signal,
+              });
+              if (result.payload && !result.error) {
+                getBudget().record('routing', 1);
+                if (admission.warn) {
+                  result.payload.budgetWarn = admission.note;
+                }
+              }
+              return result;
+            } finally {
+              clearTimeout(timer);
+            }
+          })();
+        } else {
+          pending = fetchRoute({
+            profile,
+            osrmProfile,
+            base,
+            coords,
+            withSteps: wantSteps,
+            fetchImpl,
+          }).then((result) => {
+            if (result?.payload) {
+              result.payload.provider = ROUTE_PROVIDER_IDS.OSRM_DEMO;
+              result.payload.classification = provider.classification;
+              result.payload.attribution = provider.attribution;
+              result.payload.demoFairUse = true;
+              result.payload.needsKey = Boolean(provider.needsKey);
+            }
+            return result;
+          });
+        }
         _routeInflight.set(inflightKey, pending);
         const settle = () => {
           if (_routeInflight.get(inflightKey) === pending)

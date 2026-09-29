@@ -536,6 +536,11 @@ export function createCalibrationGizmo({
     if (scene.screenSpaceCameraController) {
       scene.screenSpaceCameraController.enableInputs = false;
     }
+    try {
+      globalThis.__eeCameraInputHold = 'cctvGizmo';
+    } catch {
+      /* non-DOM hosts */
+    }
     return true;
   }
 
@@ -617,6 +622,11 @@ export function createCalibrationGizmo({
     drag = null;
     if (scene.screenSpaceCameraController) {
       scene.screenSpaceCameraController.enableInputs = true;
+    }
+    try {
+      if (globalThis.__eeCameraInputHold === 'cctvGizmo') globalThis.__eeCameraInputHold = null;
+    } catch {
+      /* non-DOM hosts */
     }
     setCursor(hoveredId ? 'grab' : '');
     endPatch(record);

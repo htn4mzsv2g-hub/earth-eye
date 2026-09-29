@@ -46,7 +46,7 @@ const PANEL_GROUPS = [
   },
   {
     label: 'Events',
-    ids: ['rocket-launches', 'earthquakes', 'local-firms', 'fire-perimeters'],
+    ids: ['rocket-launches', 'earthquakes', 'local-firms', 'fire-perimeters', 'weather-alerts'],
   },
   {
     label: 'Weather',
@@ -142,6 +142,8 @@ export class LayerPanel {
         container?.ownerDocument?.getElementById?.('weather-panel-body'),
       setLayerParams: this.setLayerParams,
     });
+    window.addEventListener('gev:event-detail-request', this._onEventDetailRequest);
+
     this._mountRecentImagery();
     this._renderToggles();
   }
@@ -179,6 +181,7 @@ export class LayerPanel {
     if (this._destroyed) return;
     this._destroyed = true;
     this._releaseBindings();
+    window.removeEventListener('gev:event-detail-request', this._onEventDetailRequest);
     this._weatherPanel?.destroy();
     this._weatherPanel = null;
     this._recentImageryPanel?.destroy();
@@ -354,6 +357,21 @@ export class LayerPanel {
     this._cancelRowControlsRefresh = null;
     this._refreshTogglePanel();
   }
+
+
+  _onEventDetailRequest = (event) => {
+    const layerId = event?.detail?.layerId;
+    if (!layerId || this._destroyed) return;
+    // Ensure the weather readout is visible and the matching card is open.
+    this._refreshWeatherPanel();
+    this._weatherPanel?.open?.(layerId);
+    const panel = this._toggleContainer?.ownerDocument?.getElementById?.(
+      'weather-panel',
+    );
+    if (panel?.classList.contains('collapsed')) {
+      panel.querySelector('[data-collapse-target="weather-panel"]')?.click();
+    }
+  };
 
   _refreshWeatherPanel() {
     this._weatherPanel?.update(

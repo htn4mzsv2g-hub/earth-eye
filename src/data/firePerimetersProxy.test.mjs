@@ -408,3 +408,27 @@ test('publication HTML streams are capped at 2 MiB', async () => {
   assert.equal((await request('/inciweb/publication/42')).status, 502);
   assert.equal(cancelled, true);
 });
+
+test('perimeter bbox is validated and forwarded as an ArcGIS envelope', async () => {
+  const calls = [];
+  const request = install({
+    fetchImpl: async (url) => {
+      calls.push(new URL(url));
+      return Response.json({ features: [] });
+    },
+  });
+  assert.equal((await request('/?bbox=-98.2,29.8,-97.2,30.7')).status, 200);
+  const upstream = calls[0];
+  assert.equal(upstream.searchParams.get('geometry'), '-98.2,29.8,-97.2,30.7');
+  assert.equal(
+    upstream.searchParams.get('geometryType'),
+    'esriGeometryEnvelope',
+  );
+  assert.equal(
+    upstream.searchParams.get('spatialRel'),
+    'esriSpatialRelIntersects',
+  );
+  for (const bbox of ['x,0,1,2', '-180,-90,180,90', '1,1,0,2']) {
+    assert.equal((await request(`/?bbox=${bbox}`)).status, 400);
+  }
+});
