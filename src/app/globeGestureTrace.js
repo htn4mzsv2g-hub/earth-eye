@@ -207,6 +207,30 @@ function emptyState() {
     lastGesture: null,
     renderFailure: null,
     context: null,
+    diagClose: null,
+  };
+}
+
+function isDiagChrome(target) {
+  return /ee-globe-diag/.test(String(target || ''));
+}
+
+/**
+ * Document-level events are an attempt even when lastGesture was never
+ * finalized (DIAG opened on the same tap, or iOS pointer+touch bookkeeping).
+ * DIAG chrome is ignored when any other target was touched.
+ */
+export function classifyRecordedEvents(events) {
+  const list = Array.isArray(events) ? events : [];
+  const globe = list.filter((event) => !isDiagChrome(event.target));
+  const used = globe.length ? globe : list;
+  return {
+    verdict: classifyAttempt({
+      events: used,
+      cameraMoved: false,
+      frameAdvanced: false,
+    }),
+    diagOnly: list.length > 0 && globe.length === 0,
   };
 }
 
@@ -223,6 +247,7 @@ export function createGestureTraceStore(storage) {
         lastGesture: parsed.lastGesture || null,
         renderFailure: parsed.renderFailure || null,
         context: parsed.context || null,
+        diagClose: parsed.diagClose || null,
       };
     } catch {
       return emptyState();
@@ -243,6 +268,7 @@ export function createGestureTraceStore(storage) {
         lastGesture: state.lastGesture ? { ...state.lastGesture } : null,
         renderFailure: state.renderFailure,
         context: state.context ? { ...state.context } : null,
+        diagClose: state.diagClose ? { ...state.diagClose } : null,
       };
     },
     replace(next, { persistNow = true } = {}) {
@@ -252,12 +278,23 @@ export function createGestureTraceStore(storage) {
         lastGesture: next.lastGesture || null,
         renderFailure: next.renderFailure || null,
         context: next.context || state.context,
+        diagClose: next.diagClose || state.diagClose || null,
       };
       if (persistNow) persist();
       return this.snapshot();
     },
     noteRenderFailure(message) {
       state.renderFailure = String(message || 'render error').slice(0, 160);
+      persist();
+    },
+    noteDiagClose(detail) {
+      state.diagClose = {
+        at: Date.now(),
+        action: String(detail?.action || '').slice(0, 40),
+        before: detail?.before || null,
+        after: detail?.after || null,
+        inputTrace: detail?.inputTrace || null,
+      };
       persist();
     },
   };
@@ -391,10 +428,19 @@ export function createGlobeGestureMonitor({
       if ((event.touches?.length || 0) >= 2) open.pinch = true;
     }
     const id = event.pointerId != null ? `p${event.pointerId}` : type.startsWith('touch') ? 'touch' : 'ptr';
+    const pointerTracked = [...active].some((key) => key.startsWith('p'));
+    // iOS fires pointer and touch for one contact. Tracking both leaves
+    // 'touch' in the set after pointerup, so finish() never runs and the
+    // diagnostic stays "GESTURE none" while the event ring has the attempt.
+    if (type.startsWith('touch') && pointerTracked) return;
     if (START_TYPES.has(type)) active.add(id);
     if (END_TYPES.has(type)) {
       active.delete(id);
       if (type.startsWith('touch') && (event.touches?.length || 0) === 0) active.clear();
+      if (type === 'pointerup' || type === 'pointercancel') {
+        const otherPointer = [...active].some((key) => key.startsWith('p'));
+        if (!otherPointer) active.clear();
+      }
       if (active.size === 0) finish();
     }
   };
@@ -409,6 +455,7 @@ export function createGlobeGestureMonitor({
   return {
     handleEvent,
     snapshot: () => store.snapshot(),
+    noteDiagClose: (detail) => store.noteDiagClose(detail),
     install() {
       if (installed || !doc?.addEventListener) return;
       installed = true;
@@ -465,15 +512,33 @@ export function renderDiagnosticText({
   hitStack = [],
   inputs = null,
   browser = null,
+  loader = null,
+  inputTrace = null,
 }) {
   const lines = [];
   lines.push(`BUILD ${buildId || 'unknown'}`);
   lines.push(`META  ${metaBuildId || 'missing'}`);
   lines.push(buildId && buildId === metaBuildId ? 'BUILD MATCH' : 'BUILD MISMATCH');
   if (browser?.label) lines.push(`BROWSER ${browser.label}`);
+  if (loader) lines.push(loader);
   const gesture = trace?.lastGesture;
   if (!gesture) {
-    lines.push('GESTURE none — no drag or pinch recorded yet');
+    const recent = trace?.events || [];
+    if (!recent.length) {
+      lines.push('GESTURE none — no document-level pointer or touch event recorded');
+      lines.push('An empty event ring is not proof the user did not try.');
+    } else {
+      const recorded = classifyRecordedEvents(recent);
+      lines.push(`GESTURE ${recorded.verdict.code} · document · ${recorded.verdict.reason}`);
+      lines.push(
+        'Document-level events count as an attempt. GESTURE none is not used when events exist.',
+      );
+      if (recorded.diagOnly) {
+        lines.push(
+          'Events target DIAG chrome. A loader or canvas attempt is kept when one is in the ring.',
+        );
+      }
+    }
     lines.push('Input flags do not show that touch works.');
   } else {
     lines.push(`GESTURE ${gesture.code} · ${gesture.kind || 'drag'} · ${gesture.reason}`);
@@ -507,6 +572,18 @@ export function renderDiagnosticText({
       `FLAGS overlay=${inputs.overlay ?? 'none'} canvas pe=${inputs.canvasPointerEvents || '—'} inputs=${inputs.enableInputs} rotate=${inputs.enableRotate} zoom=${inputs.enableZoom} tilt=${inputs.enableTilt} webglLost=${inputs.webglLost} loop=${inputs.useDefaultRenderLoop} rrm=${inputs.requestRenderMode}`,
     );
     lines.push('FLAGS are not a verdict.');
+  }
+  const disable = inputTrace?.lastDisable;
+  if (disable) {
+    lines.push(`INPUT DISABLE ${disable.stack || 'untraced'}`);
+  } else if (inputs?.enableInputs === false) {
+    lines.push('INPUT DISABLE untraced — no setter passed the camera input trace');
+  }
+  const closed = trace?.diagClose;
+  if (closed) {
+    lines.push(
+      `AFTER DIAG CLOSE action=${closed.action || '—'} inputs ${closed.before?.enableInputs} → ${closed.after?.enableInputs}`,
+    );
   }
   const recent = trace?.events || [];
   if (recent.length) {

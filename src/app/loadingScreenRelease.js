@@ -1,19 +1,12 @@
 /**
  * Take the startup loader out of hit testing.
  *
- * Owner DIAG (Fly v60, physical iPhone, embedded browser): overlay none,
- * canvas pointer-events auto, camera input flags true, WebGL context not
- * lost, and the top element at the viewport center was `div.loader-content`.
- * Touches never reached the Cesium canvas (class A).
- *
- * `#loading-screen` is position:fixed; inset:0; z-index:1000. The old
- * dismiss only added `.hidden`, which transitions `visibility` for 0.8s.
- * Until that transition finishes — and embedded WebKit often never finishes
- * it while the wordmark SVG animates (`will-change: transform` inside the
- * image) — the used visibility stays `visible`. A descendant with an
- * explicit pointer-events value is then a hit target even when the parent
- * sets pointer-events:none. The pre-audit loader was a static logo; the
- * animated wordmark made that stuck overlay the center hit target.
+ * Owner DIAG (Fly v64, physical iPhone, BUILD MATCH git-825a59d): the live
+ * `#loading-screen` still had its initial CSS — pointer-events auto,
+ * visibility visible, display flex, opacity 1, z-index 1000 — and the center
+ * hit was `div.loader-content`. That is an unreleased node. The previous
+ * dismiss waited on share restoration, so a flyTo that never completed left
+ * the overlay in place. Release does not wait on that promise.
  *
  * Release applies display:none and visibility:hidden immediately (inline,
  * important when the CSSOM allows it) and marks the node inert. Class
@@ -79,9 +72,29 @@ export function releaseLoadingScreen(loadingScreen) {
  * Inline display:none or visibility:hidden means it is gone.
  * @param {HTMLElement|null|undefined} loadingScreen
  */
-export function loaderInterceptsPointer(loadingScreen) {
+/**
+ * Release again when the live node is still the startup overlay.
+ * Covers a replacement node and a release that was skipped.
+ * @param {Document} [doc]
+ * @returns {boolean} True when a release was applied.
+ */
+export function ensureLoaderReleased(doc = globalThis.document) {
+  const loader = doc?.getElementById?.('loading-screen');
+  if (!loader) return false;
+  let computed = null;
+  try {
+    computed = doc.defaultView?.getComputedStyle?.(loader) || null;
+  } catch {
+    computed = null;
+  }
+  if (!loaderInterceptsPointer(loader, computed || undefined)) return false;
+  releaseLoadingScreen(loader);
+  return true;
+}
+
+export function loaderInterceptsPointer(loadingScreen, computed) {
   if (!loadingScreen) return false;
-  const style = loadingScreen.style || {};
+  const style = computed || loadingScreen.style || {};
   const display = String(style.display || '').toLowerCase();
   const visibility = String(style.visibility || '').toLowerCase();
   if (display === 'none' || visibility === 'hidden') return false;

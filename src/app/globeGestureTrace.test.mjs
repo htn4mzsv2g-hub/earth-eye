@@ -338,3 +338,88 @@ test('opening the diagnostic panel does not erase the stored gesture', () => {
   assert.equal(targetLabel(blocker), 'div.loader-content');
   assert.ok(ancestorStyleChain(blocker).length >= 1);
 });
+
+test('document-level loader events count as an attempt when the gesture never finalizes', () => {
+  const text = renderDiagnosticText({
+    buildId: 'git-a',
+    metaBuildId: 'git-a',
+    trace: {
+      events: [
+        { type: 'pointerdown', target: 'div.loader-content', reachedCanvas: false },
+        { type: 'pointerdown', target: 'button#ee-globe-diag-toggle', reachedCanvas: false },
+      ],
+      lastGesture: null,
+    },
+  });
+  assert.match(text, /GESTURE A/);
+  assert.match(text, /div\.loader-content/);
+  assert.doesNotMatch(text, /^GESTURE none/m);
+});
+
+test('DIAG-only events are still an attempt, not proof the user did not try', () => {
+  const text = renderDiagnosticText({
+    buildId: 'git-a',
+    metaBuildId: 'git-a',
+    trace: {
+      events: [
+        { type: 'pointerdown', target: 'button#ee-globe-diag-toggle', reachedCanvas: false },
+      ],
+      lastGesture: null,
+    },
+  });
+  assert.match(text, /GESTURE A/);
+  assert.match(text, /DIAG chrome/);
+  assert.doesNotMatch(text, /^GESTURE none/m);
+});
+
+test('paired pointer and touch events still finish the attempt', () => {
+  const storage = memoryStorage();
+  const canvas = el('CANVAS');
+  const loader = el('DIV', 'loader-content');
+  const monitor = createGlobeGestureMonitor({
+    storage,
+    getCanvas: () => canvas,
+    readScene: () => ({
+      camera: { lon: 0, lat: 0, h: 1, heading: 0, pitch: 0 },
+      frame: 2,
+      contextLost: false,
+      loopStalled: false,
+    }),
+    schedule: (fn) => fn(),
+  });
+  monitor.handleEvent({
+    type: 'pointerdown',
+    target: loader,
+    pointerId: 1,
+    pointerType: 'touch',
+    defaultPrevented: false,
+  });
+  monitor.handleEvent({
+    type: 'touchstart',
+    target: loader,
+    touches: [{}],
+    defaultPrevented: false,
+  });
+  monitor.handleEvent({
+    type: 'pointerup',
+    target: loader,
+    pointerId: 1,
+    pointerType: 'touch',
+    defaultPrevented: false,
+  });
+  assert.equal(monitor.snapshot().lastGesture.code, 'A');
+  assert.equal(monitor.snapshot().lastGesture.topTarget, 'div.loader-content');
+  monitor.noteDiagClose({
+    action: 'restored',
+    before: { enableInputs: false },
+    after: { enableInputs: true },
+  });
+  const text = renderDiagnosticText({
+    buildId: 'git-a',
+    metaBuildId: 'git-a',
+    trace: monitor.snapshot(),
+  });
+  assert.match(text, /GESTURE A/);
+  assert.match(text, /AFTER DIAG CLOSE action=restored inputs false → true/);
+  assert.equal(monitor.snapshot().lastGesture.code, 'A');
+});

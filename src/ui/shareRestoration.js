@@ -4,6 +4,16 @@ import { canPresentDeferredStatusNotice } from '../loadingFeedback.js';
 import { UiLifetime } from './uiLifetime.js';
 import { createLiveEarthController } from '../atlas/liveEarthController.js';
 
+function capPending(promise, ms) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ status: 'timeout' }), ms);
+  });
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
 /** Own initial share restoration, durable layer state and restoration notices. */
 export class ShareRestoration {
   constructor({
@@ -64,15 +74,34 @@ export class ShareRestoration {
           this.navigation._reassertNavigationHandoff(generation);
         void (async () => {
           try {
-            const share = await this.shareLinkManager.applyState(savedState, {
-              applyCamera,
-              navigationToken: generation,
-            });
-            const layers = await (this._layerStateRestorePromise ||
-              Promise.resolve([]));
+            // A flyTo whose complete/cancel never runs must not leave the
+            // loader up. startupChrome also releases on its own cap; this
+            // bound keeps welcome and the restore promise from waiting forever.
+            const share = await capPending(
+              this.shareLinkManager.applyState(savedState, {
+                applyCamera,
+                navigationToken: generation,
+              }),
+              8000,
+            );
+            if (share?.status === 'timeout') {
+              try {
+                this.viewer?.camera?.cancelFlight?.();
+              } catch {
+                /* flight already gone */
+              }
+            }
+            const layers = await capPending(
+              this._layerStateRestorePromise || Promise.resolve([]),
+              8000,
+            );
             const tracking =
               share.camera === 'applied'
-                ? await this._layerStateCoordinator?.restoreShareTrackingSelection?.()
+                ? await capPending(
+                    this._layerStateCoordinator?.restoreShareTrackingSelection?.() ||
+                      Promise.resolve({ status: 'skipped' }),
+                    8000,
+                  )
                 : {
                     status: 'superseded',
                     cleared:

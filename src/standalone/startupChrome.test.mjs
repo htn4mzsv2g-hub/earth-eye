@@ -16,6 +16,7 @@ const source = readFileSync(
 const prelude = `function releaseLoadingScreen(loadingScreen) {
   loadingScreen.classList.add('hidden');
 }
+function restoreCameraInputsUnlessCockpit() {}
 `;
 
 function fixture() {
@@ -105,6 +106,16 @@ test('reduced motion uses the bounded fallback after the cover hides', async () 
   f.fire(900);
   assert.deepEqual(f.events, ['hidden', 'welcome']);
   await f.stop();
+});
+
+test('a hung share restore still drops the loader and does not reveal welcome', async () => {
+  const f = fixture();
+  f.fire(1200);
+  await flush();
+  assert.deepEqual(f.events, ['hidden']);
+  assert.equal(f.listeners.size, 0);
+  f.fire(900);
+  assert.deepEqual(f.events, ['hidden']);
 });
 
 test('shutdown while restore is pending never reveals late welcome UI', async () => {

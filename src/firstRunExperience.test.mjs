@@ -600,7 +600,11 @@ test('markup, startup ordering and accessibility remain pinned', () => {
     'the removed tile must leave no markup behind');
 
   assert.match(startup, /styleManager\.initialRestorePromise/);
-  assert.ok(startup.indexOf("loadingScreen.classList.add('hidden')") < startup.indexOf("loadingScreen.addEventListener('transitionend', revealFirstRun"));
+  assert.ok(
+    startup.indexOf("releaseCover('restore-settled')") <
+      startup.indexOf("addEventListener?.('transitionend', revealFirstRun"),
+  );
+  assert.match(startup, /LOADER_RELEASE_CAP_MS/);
   assert.match(startup, /initializeWelcome\?\.\(\{ styleManager, dataManager \}\)/);
 
   assert.match(css, /body\.ui-clean-view #first-run-launcher/);

@@ -24,6 +24,8 @@ import {
   degradedRunAction,
 } from './graphicsRecovery.js';
 import { attachDiagnosticViewer } from './globeDiagnosticsPanel.js';
+import { ensureLoaderReleased } from './loadingScreenRelease.js';
+import { restoreCameraInputsUnlessCockpit } from './cameraInputTrace.js';
 
 /** Attach scene tools, rendering listeners and the application debug handle. */
 export function createApplicationTools({
@@ -115,6 +117,30 @@ export function createApplicationTools({
 
   applyMobileGpuTuning(viewer);
   attachDiagnosticViewer(viewer);
+  // Re-hide a loader that startup left up, and put camera inputs back if a
+  // flight callback never restored them. Two beats, not a continuous hammer:
+  // a drag tool may legitimately set inputs false after the user starts one.
+  const releaseStuckStartup = (reason) => {
+    ensureLoaderReleased(document);
+    restoreCameraInputsUnlessCockpit(viewer, document, reason);
+  };
+  const startupReleaseTimers = [3000, 8000].map((delay) =>
+    setTimeout(() => releaseStuckStartup(`startup-${delay}`), delay),
+  );
+  const startupReleaseUntil = Date.now() + 30000;
+  const releaseIfVisible = () => {
+    if (document.hidden) return;
+    if (Date.now() > startupReleaseUntil) {
+      document.removeEventListener('visibilitychange', releaseIfVisible);
+      return;
+    }
+    releaseStuckStartup('visible');
+  };
+  document.addEventListener('visibilitychange', releaseIfVisible);
+  defer(() => {
+    for (const timer of startupReleaseTimers) clearTimeout(timer);
+    document.removeEventListener('visibilitychange', releaseIfVisible);
+  });
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager, {

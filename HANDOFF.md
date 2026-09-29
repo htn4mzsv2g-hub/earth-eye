@@ -11,7 +11,7 @@
 | --- | --- |
 | Fly tip | **v58** (EE-AUDIT-10) |
 | Fly image | `registry.fly.io/eartheye:deployment-01M3PGAHGY0RGMBPRWY6A64BD0` |
-| Rollback | **v57** `registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN` |
+| Rollback | Not v57 and not v62. See `docs/IPHONE_GLOBE_RELEASE_MAP.md` |
 | Non-3D URL | https://eartheye.us/?ee_non3d=1 |
 
 ### Git commits on `fix/audit10-workflow`
@@ -28,7 +28,7 @@
 
 **Verified 2026-09-29 (restore branch):** `dc51575`, `bfe24f9`, `b15ea56`, `258ea66`, `5ae5e08`, and `b48f4b0` are **not git objects** in this clone or on GitHub (the API returns no commit). History here is squashed: `2afd378` (gods-eye-view handoff) → `d78c49c` (v58 checkpoint + WIP). Later freeze-patch names `5e56f29`, `ebafb9a`, and `e91d7a6` (claimed v63 tip) are also absent. Do not check them out. There is no `holdContinuousRender('camera-interact')` in this tree.
 
-**Rollback to evaluate (not v62):** Fly **v57** `registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN` is the image the audit-10 milestone names as the tip *before* v58 / `dc51575`. Owner: the globe worked before that non-3D audit. v57 is the candidate. It is not a recorded physical drag+pinch pass. If v57 is still frozen, the older pre-graphics-recovery image is v54 `deployment-01M3PEW4KQQ6ZC1V00HM0C2C8J`. Do not use v62.
+**iPhone globe (ticket still open):** Fly **v64** `registry.fly.io/eartheye:deployment-01M3PP94CEW9K7HV9KSYRVVT3F` (BUILD MATCH `git-825a59d-202609291339`) still left `#loading-screen` hit-testable and `enableInputs` false. Do not treat v57 as a working rollback — it is after the non-3D audit. Do not use v62. Mapping, gesture classes, and the loader fix: `docs/IPHONE_GLOBE_RELEASE_MAP.md`. Physical drag and pinch are still required before this ticket closes. Do not deploy a speculative reset.
 
 **IMPORTANT:** Fly often deploys from the Grok Bot computer tree without requiring GitHub tip. Prefer this work branch over `main` for current app source. Keep unfinished work off stable `main`.
 
@@ -74,7 +74,7 @@ Remote work branch omits `docs/media/` marketing GIFs (~68MB) to keep the push b
 | --- | --- |
 | Tip release | **v58** (EE-AUDIT-10) |
 | Image | `registry.fly.io/eartheye:deployment-01M3PGAHGY0RGMBPRWY6A64BD0` |
-| Rollback | **v57** `deployment-01M3PFRJK7KJW6955G5AKXH6XN` |
+| Rollback | Not v57 and not v62. See `docs/IPHONE_GLOBE_RELEASE_MAP.md` |
 | Prior | **v56** EVENTS-3; **v55** graphics non-3D |
 | Branch tip | `fix/audit10-workflow` @ `5ae5e08` (WIP after deploy; see mapping above) |
 | Auth | Owner `LOGIN_*`; optional `REVIEWER_*` (temp ChatGPT audit) |
@@ -129,10 +129,12 @@ Prefer focused suites under `src/events/`, `src/app/graphicsRecovery.test.mjs`, 
 
 ## Rollback example
 
+Evaluate **v57** (pre-audit-10 / pre-v58). Not v62. v56 below is only the older events-4 rollback.
+
 ```bash
 HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
   fly deploy -a eartheye --ha=false \
-  --image registry.fly.io/eartheye:deployment-01M3PFGP98Z97PBJPZAVSP1BGV
+  --image registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN
 ```
 
 ## Important architecture notes

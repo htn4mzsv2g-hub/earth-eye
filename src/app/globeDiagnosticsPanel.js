@@ -6,6 +6,11 @@
 
 import { embeddedBuildId, publishBuildStamp, readMetaBuildId } from './buildStamp.js';
 import {
+  readCameraInputTrace,
+  restoreCameraInputsUnlessCockpit,
+} from './cameraInputTrace.js';
+import { releaseLoadingScreen } from './loadingScreenRelease.js';
+import {
   ancestorStyleChain,
   createGlobeGestureMonitor,
   readBrowserContext,
@@ -41,6 +46,28 @@ function readInputFlags(doc, viewer) {
     useDefaultRenderLoop: viewer?.useDefaultRenderLoop ?? null,
     requestRenderMode: viewer?.scene?.requestRenderMode ?? null,
   };
+}
+
+function readLoaderLine(doc) {
+  const el = doc?.getElementById?.('loading-screen');
+  if (!el) return 'LOADER absent';
+  let computed = null;
+  try {
+    computed = doc.defaultView?.getComputedStyle?.(el) || null;
+  } catch {
+    computed = null;
+  }
+  const release = globalThis.__eeLoaderRelease;
+  return [
+    'LOADER',
+    `class=${el.className || '—'}`,
+    `attr=${el.getAttribute?.('data-ee-loader-released') || 'no'}`,
+    `display=${computed?.display || el.style?.display || '—'}`,
+    `vis=${computed?.visibility || el.style?.visibility || '—'}`,
+    `pe=${computed?.pointerEvents || el.style?.pointerEvents || '—'}`,
+    `op=${computed?.opacity || el.style?.opacity || '—'}`,
+    `reason=${release?.reason || 'not-yet'}`,
+  ].join(' ');
 }
 
 function sampleCenterStack(doc) {
@@ -79,6 +106,8 @@ export function fillDiagnosticPanel(
     hitStack: sampleCenterStack(doc),
     inputs: readInputFlags(doc, viewer),
     browser: readBrowserContext(globalThis.navigator, globalThis.window),
+    loader: readLoaderLine(doc),
+    inputTrace: readCameraInputTrace(),
   });
   const body = panel.querySelector?.('[data-ee-globe-diag-body]') || panel;
   body.textContent = text;
@@ -128,9 +157,29 @@ export function mountGlobeDiagnostics({
   }
 
   const setOpen = (open) => {
+    if (!open) {
+      const viewer = globalThis.__godsEyeView?.viewer;
+      const before = readInputFlags(doc, viewer);
+      const action = restoreCameraInputsUnlessCockpit(viewer, doc, 'diag-close');
+      const after = readInputFlags(doc, viewer);
+      host.noteDiagClose?.({
+        action,
+        before,
+        after,
+        inputTrace: readCameraInputTrace(),
+      });
+    }
     panel.hidden = !open;
     button.setAttribute('aria-expanded', String(open));
-    if (open) fillDiagnosticPanel(panel, host, doc);
+    if (open) {
+      const beforeOpen = readLoaderLine(doc);
+      const loader = doc.getElementById?.('loading-screen');
+      if (loader) releaseLoadingScreen(loader);
+      const text = fillDiagnosticPanel(panel, host, doc);
+      const body = panel.querySelector?.('[data-ee-globe-diag-body]') || panel;
+      if (body && beforeOpen) body.textContent = `LOADER AT OPEN ${beforeOpen}\n${text}`;
+      return text;
+    }
   };
 
   const onClick = (event) => {

@@ -5,6 +5,7 @@ import {
   isGraphicsInitFailure,
   wrapGraphicsInitFailure,
 } from './graphicsRecovery.js';
+import { installCameraInputTrace } from './cameraInputTrace.js';
 
 const PINCH_ZOOM_MULTIPLIER = 8;
 const MAX_PINCH_PIXEL_DELTA = 120;
@@ -149,6 +150,7 @@ export function createApplicationViewer({ container, creditContainer }) {
     // atmosphere fails to LINK on Apple's Metal backend and kills the
     // render loop. See app/atmosphereCompat.js.
     applyModelAtmosphereWorkaround(viewer.scene);
+    installCameraInputTrace(viewer);
     viewer.scene.globe.show = false;
     viewer.scene.skyAtmosphere.show = true;
     viewer.scene.skyAtmosphere.atmosphereLightIntensity = 18;

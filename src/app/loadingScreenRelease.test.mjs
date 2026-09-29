@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  ensureLoaderReleased,
   loaderInterceptsPointer,
   releaseLoadingScreen,
 } from './loadingScreenRelease.js';
@@ -78,6 +79,25 @@ test('class-only hide still leaves loader-content as the center hit target', () 
   screen.style.pointerEvents = 'none';
   assert.equal(loaderInterceptsPointer(screen), true);
   assert.equal(screen.querySelector('.loader-content').style.pointerEvents, 'auto');
+});
+
+test('v64 computed style still intercepts until the live node is released', () => {
+  const { screen } = loaderFixture();
+  const computed = {
+    display: 'flex',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    opacity: '1',
+  };
+  assert.equal(loaderInterceptsPointer(screen, computed), true);
+  const doc = {
+    getElementById: (id) => (id === 'loading-screen' ? screen : null),
+    defaultView: { getComputedStyle: () => computed },
+  };
+  assert.equal(ensureLoaderReleased(doc), true);
+  assert.equal(screen.style.display, 'none');
+  assert.equal(screen.getAttribute('data-ee-loader-released'), '1');
+  assert.equal(loaderInterceptsPointer(screen), false);
 });
 
 test('release removes the loader from hit testing even when a child forces pointer-events', () => {
