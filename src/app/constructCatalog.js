@@ -2,6 +2,7 @@ import { createWeatherClock } from '../layers/weather/clock.js';
 import { createWeatherLayer } from '../layers/weather/index.js';
 import { createCyclonesLayer } from '../layers/cyclones/index.js';
 import { createWindLayer } from '../layers/wind/index.js';
+import { createApplicationNwsAlerts } from './layers/nwsAlerts.js';
 import { createLayerCatalog } from './catalog.js';
 import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
 import { createMilitaryRegistry } from '../layers/aircraft/classification.js';
@@ -27,6 +28,28 @@ import { createApplicationFirePerimeters } from './layers/perimeters.js';
 import { createApplicationCables } from './layers/submarineCables.js';
 import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
+import { isDevOnlyLayerBlocked } from '../policy/devFlags.js';
+
+/**
+ * Earth Eye locked policy: keep a layer registered (other upstream services
+ * depend on it) but remove it from every layer control. Radio is hidden in
+ * every build; ALPR and simulated traffic unless the dev-only flag is on.
+ * The manager's enable policy separately refuses to turn them on.
+ */
+function withoutControls(layer, hide) {
+  if (!hide || !layer) return layer;
+  try {
+    Object.defineProperty(layer, 'showInTogglePanel', {
+      value: false,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
+  } catch {
+    /* frozen modules keep their flag; the enable policy still refuses */
+  }
+  return layer;
+}
 import { createBhoteKoshiEventLayer } from '../data/bhoteKoshiEvent.js';
 import { createBhoteKoshiLocatorLayer } from '../data/bhoteKoshiLocator.js';
 
@@ -54,6 +77,7 @@ const SOURCE_METHODS = Object.freeze({
   cyclones: ['getSnapshot'],
   earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
+  'weather-alerts': ['getSnapshot'],
   cables: ['fetch'],
 });
 
@@ -147,12 +171,21 @@ export function createApplicationCatalog({
         createApplicationFirePerimeters({
           source: sources['fire-perimeters'],
         }),
-        createApplicationAlpr({ surface, source: sources.alpr }),
+        withoutControls(
+          createApplicationAlpr({ surface, source: sources.alpr }),
+          isDevOnlyLayerBlocked('alpr-cameras'),
+        ),
         satellites,
         createApplicationLaunches({ source: sources.launches, satellites }),
-        createApplicationTraffic({ source: sources.traffic }),
+        withoutControls(
+          createApplicationTraffic({ source: sources.traffic }),
+          isDevOnlyLayerBlocked('traffic'),
+        ),
         createApplicationCctv({ surface, source: sources.cctv }),
-        createApplicationRadio({ surface, source: sources.radio }),
+        withoutControls(
+          createApplicationRadio({ surface, source: sources.radio }),
+          true,
+        ),
         createApplicationTransit({ surface, source: sources.transit }),
         createApplicationBikeshare({ source: sources.bikeshare }),
         createApplicationDirections(),
@@ -182,6 +215,7 @@ export function createApplicationCatalog({
           clock: weatherClock,
         }),
         createCyclonesLayer({ feed: sources.cyclones }),
+        createApplicationNwsAlerts({ source: sources['weather-alerts'] }),
         ...createInfrastructureLayers(localGeoJsonServices),
         createApplicationCables({ source: sources.cables }),
         createApplicationFirms({

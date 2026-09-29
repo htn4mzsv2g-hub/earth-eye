@@ -1062,8 +1062,31 @@ export function getOverlayPaintRect(sourceId, entryId) {
  * @param {{sourceId?:string,collisionGroup?:string,filter?:Function}} [options]
  * @returns {{sourceId:string,entryId:string,entry:WorldOverlayEntry,rect:OverlayRect}|null}
  */
+/** Minimum CSS-pixel touch target for interactive overlays (iPhone HIG). */
+export const OVERLAY_MIN_HIT_PX = 44;
+
+function hitRectContains(hit, x, y) {
+  // Expand undersized cards to a centered min touch target without moving paint.
+  const min = OVERLAY_MIN_HIT_PX;
+  const padX = Math.max(0, (min - hit.w) / 2);
+  const padY = Math.max(0, (min - hit.h) / 2);
+  return (
+    x >= hit.x - padX &&
+    x <= hit.x + hit.w + padX &&
+    y >= hit.y - padY &&
+    y <= hit.y + hit.h + padY
+  );
+}
+
 export function hitTestWorldOverlay(x, y, options = {}) {
-  if (_destroyed || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const all = hitTestWorldOverlayAll(x, y, options);
+  return all[0] || null;
+}
+
+/** Top-to-bottom interactive hits at a point (for overlap pickers). */
+export function hitTestWorldOverlayAll(x, y, options = {}) {
+  if (_destroyed || !Number.isFinite(x) || !Number.isFinite(y)) return [];
+  const hits = [];
   for (let i = _hitRectCount - 1; i >= 0; i--) {
     const hit = _hitRects[i];
     if (options.sourceId && hit.sourceId !== options.sourceId) continue;
@@ -1074,16 +1097,15 @@ export function hitTestWorldOverlay(x, y, options = {}) {
       continue;
     if (typeof options.filter === 'function' && !options.filter(hit.entry))
       continue;
-    if (x < hit.x || x > hit.x + hit.w || y < hit.y || y > hit.y + hit.h)
-      continue;
-    return {
+    if (!hitRectContains(hit, x, y)) continue;
+    hits.push({
       sourceId: hit.sourceId,
       entryId: hit.entryId,
       entry: hit.entry,
       rect: hit,
-    };
+    });
   }
-  return null;
+  return hits;
 }
 
 /** @returns {object} Copy of the stable diagnostic facade shape. */

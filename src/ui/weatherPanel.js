@@ -179,6 +179,19 @@ export function createWeatherPanel({
         if (state.mode === 'history') detail += ' · Does not follow history';
       }
       const lines = [
+        {
+          id: 'kind',
+          text:
+            summary.productKindLabel ||
+            (OBSERVED.has(id)
+              ? 'Observed imagery'
+              : id === 'weather-cyclones'
+                ? 'Advisory / forecast track'
+                : id === 'wind'
+                  ? 'Model forecast (not observed imagery)'
+                  : null),
+          muted: true,
+        },
         { id: 'time', text: detail, muted: true },
         { id: 'status', text: summary.status },
       ];
@@ -281,6 +294,21 @@ export function createWeatherPanel({
       if (ids.size) hasAppeared = true;
       previousIds = ids;
       render();
+    },
+    /** Open a weather card (e.g. after an event marker tap). */
+    open(layerId) {
+      if (!layerId || destroyed) return false;
+      if (!entries.some((entry) => entry.id === layerId)) return false;
+      openId = layerId;
+      openDocuments.set(document, layerId);
+      // Expand the weather panel if it was collapsed.
+      if (panel?.classList.contains('collapsed')) {
+        panel
+          .querySelector('[data-collapse-target="weather-panel"]')
+          ?.click();
+      }
+      render();
+      return true;
     },
     destroy() {
       destroyed = true;

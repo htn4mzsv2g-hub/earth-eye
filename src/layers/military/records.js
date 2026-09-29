@@ -140,6 +140,13 @@ export class MilitaryFlightRecords {
       }),
       registration: stickyText(registration, prevMeta?.registration),
       operator: stickyText(operator, prevMeta?.operator),
+      // Provider provenance (never inferred): see militaryIconColor().
+      militaryFlag:
+        typeof aircraft.militaryFlag === 'boolean'
+          ? aircraft.militaryFlag
+          : (prevMeta?.militaryFlag ?? null),
+      militaryProvenance:
+        aircraft.militaryProvenance ?? prevMeta?.militaryProvenance ?? null,
       altitudeFt: stickyNumber(altitudeFt, prevMeta?.altitudeFt, null),
       // geoAltitudeM/renderAltitudeM are ADDITIVE fields alongside the
       // untouched aviation `altitudeFt` — never rename/replace it (labels,

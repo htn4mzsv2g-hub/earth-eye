@@ -14,7 +14,7 @@ import path from 'node:path';
  * answer is less query volume, not a new name.
  */
 const OVERPASS_USER_AGENT =
-  'gods-eye-view/0.1 (+https://github.com/bilawalsidhu/gods-eye-view)';
+  'earth-eye/0.1 (private hosted instance; +https://eartheye.us; based on +https://github.com/bilawalsidhu/gods-eye-view)';
 
 /** Ordered list of Overpass API mirrors; tried sequentially on failure/rate-limit. */
 const OVERPASS_UPSTREAMS = [
@@ -26,7 +26,23 @@ const OVERPASS_UPSTREAMS = [
   // ban; refused connections fail in ms, so healthy mirrors above still win).
   // Verified: planet coverage (Texas query), CORS *, ~5-20 s cold latency.
   'https://overpass.private.coffee/api/interpreter',
+  // maps.mail.ru (VK) mirror removed 2026-09-29 — unvetted per Earth Eye
+  // DATASET_LICENSES / authenticity directive. Prefer OpenFreeMap offload
+  // (upstream fix/overpass-offload) for installations/roads when safe.
 ];
+
+/** Comma-separated OVERPASS_UPSTREAMS env overrides the default mirror list; empty disables. */
+function resolveOverpassUpstreams() {
+  const raw = process.env.OVERPASS_UPSTREAMS;
+  if (raw === undefined) return OVERPASS_UPSTREAMS.slice();
+  const trimmed = String(raw).trim();
+  if (!trimmed) return [];
+  return trimmed
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 
 /**
  * TTL for FRESH cached Overpass responses (ms). Road geometry is static for
@@ -143,6 +159,7 @@ export {
   OVERPASS_SIMPLIFY_TOLERANCE_DEG,
   OVERPASS_MAX_RESPONSE_BYTES,
   OVERPASS_UPSTREAMS,
+  resolveOverpassUpstreams,
   OVERPASS_USER_AGENT,
   OVERPASS_TIMEOUT_MS,
 };

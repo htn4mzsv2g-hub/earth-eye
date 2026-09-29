@@ -1,117 +1,139 @@
-# Earth Eye handoff
+# Earth Eye — developer handoff
 
-Personal rebrand of the MIT-licensed project [gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view) by Bilawal Sidhu. This is not a from-scratch rewrite.
+**Checkpoint:** 2026-09-29 ~6:57 AM America/Chicago  
+**Repo:** https://github.com/htn4mzsv2g-hub/earth-eye (private)  
+**Work branch:** `fix/audit10-workflow`  
+**Docs-only PR (earlier):** https://github.com/htn4mzsv2g-hub/earth-eye/pull/1 (`handoff/2026-09-29`)
+
+## Deployed production ↔ source mapping
 
 | Item | Value |
-|---|---|
-| Visible name | Earth Eye |
-| Intended domain | eartheye.us (not connected; no public host was deployed) |
-| npm package name | `gods-eye-view` (left unchanged; the source imports itself that way) |
-| Upstream | https://github.com/bilawalsidhu/gods-eye-view |
-| Upstream commit | `81eb443` (`Merge pull request #744 from manjunath22466/fix/share-link-layer-token-allocation`) |
-| Patch vs that commit | `earth-eye-vs-upstream.patch` in this folder |
+| --- | --- |
+| Fly tip | **v58** (EE-AUDIT-10) |
+| Fly image | `registry.fly.io/eartheye:deployment-01M3PGAHGY0RGMBPRWY6A64BD0` |
+| Rollback | **v57** `registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN` |
+| Non-3D URL | https://eartheye.us/?ee_non3d=1 |
 
-License, `THIRD_PARTY_NOTICES.md`, and `DATA_SOURCES.md` still apply. Bundled datasets are not covered by MIT. Do not strip those notices.
+### Git commits on `fix/audit10-workflow`
 
-## Not deployed
+| Commit | Role |
+| --- | --- |
+| `dc51575` | Audit-10 workflow fixes (shared selection, honesty, etc.) |
+| `bfe24f9` | Import deps for audit-10 graph |
+| `b15ea56` | Server world-events + milestone docs (deployable tip) |
+| `258ea66` | Fly v58 release record + HANDOFF |
+| **`5ae5e08`** | **UNFINISHED WIP checkpoint** — remaining dirty tree AFTER v58 deploy (auth/LIVE/CCTV/loading/UI). Not claimed as what Fly built. Review before merging to stable. |
 
-There is no public production URL. The copy that was running was a Vite **dev** server inside the build sandbox, not a production build on a host. Do not point GoDaddy at anything from this package. No DNS records were issued.
+**Fly ↔ source:** Production v58 was deployed from the local working tree at/near `258ea66` / `b15ea56` (audit-10 tip). Commit `5ae5e08` preserves extra unfinished local work so the remote branch has the full buildable application, clearly marked WIP.
 
-## Install and run
+**IMPORTANT:** Fly often deploys from the Grok Bot computer tree without requiring GitHub tip. Prefer this work branch over `main` for current app source. Keep unfinished work off stable `main`.
 
-Node `>=24.14.0 <25` or `>=26 <27` (see `package.json` `engines`). Node 22 will fail the doctor.
+## Audit-10 status
+
+- Journeys: `node --test src/atlas/audit10Workflow.test.mjs` → **9/9 pass** (unit, last local run).
+- Docs: `docs/EE_AUDIT10_WORKFLOW_FINDINGS.md`, `docs/EE_AUDIT10_WORKFLOW_MILESTONE.md`
+- ChatGPT non-3D browser re-audit still needed for SELECT→UNDERSTAND→INSPECT→ASK on the same real object.
+- Do **not** claim 3D / iPhone / aircraft movement / weather / roads verified from this work.
+
+## Secrets — never in Git
+
+- `.reviewer-cred.local`, `LOGIN_*`, `REVIEWER_*`, `SESSION_SECRET`, Fly tokens, API keys, `.env`, `node_modules`, `200/`
+
+## Next for incoming developer
+
+1. Pull `fix/audit10-workflow` (full app, not docs-only PR).
+2. Re-verify 10 audit journeys on `https://eartheye.us/?ee_non3d=1` with reviewer.
+3. Finish or split WIP `5ae5e08` into focused commits; do not merge WIP blindly to `main`.
+4. EE-EVENTS-5/6, Cockpit, upstream delta — only after audit P0 stable in browser.
+5. Owner gates unchanged (Photoreal key, OAuth, Broadcastify, etc.).
+
+---
+
+## Checkpoint packaging note (2026-09-29 ~7:00 AM CT)
+
+Remote work branch omits `docs/media/` marketing GIFs (~68MB) to keep the push buildable and under size limits. Those assets are not required to build or run the app. All application source, `server/`, `public/`, tests, and HANDOFF docs are included. Tip SHA on the Grok Bot computer before push: `bb36fa8`.
+
+
+## Do not put in Git
+
+- `.reviewer-cred.local`, any `REVIEWER_*` / `LOGIN_*` / Fly tokens / API keys
+- `.env` with secrets
+- `200/` (stray Fly cache)
+- Real reviewer passwords in chat archives if avoidable
+
+**Revoke reviewer when audit done:**  
+`HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN fly secrets unset REVIEWER_USER REVIEWER_PASS -a eartheye`
+
+## Production (Fly `eartheye` / https://eartheye.us)
+
+| Item | Value |
+| --- | --- |
+| Tip release | **v58** (EE-AUDIT-10) |
+| Image | `registry.fly.io/eartheye:deployment-01M3PGAHGY0RGMBPRWY6A64BD0` |
+| Rollback | **v57** `deployment-01M3PFRJK7KJW6955G5AKXH6XN` |
+| Prior | **v56** EVENTS-3; **v55** graphics non-3D |
+| Branch tip | `fix/audit10-workflow` @ `5ae5e08` (WIP after deploy; see mapping above) |
+| Auth | Owner `LOGIN_*`; optional `REVIEWER_*` (temp ChatGPT audit) |
+| Always-on | Option C: shared-1x 512MB dfw + 1GB volume + daily snapshots 5-day |
+
+**Auth pattern that works from the agent box:**  
+`HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN fly … -a eartheye`
+
+## Controlling specs (`/workspace/earth-eye-spec/`)
+
+1. PRODUCTION_QUALITY_AI_NATIVE_CHARTER_2026-09-29.md  
+2. FINAL_ENGINEERING_BUILD_DIRECTIVE_2026-09-29.md  
+3. LIVE_WORLD_AUDIT_REMEDIATION_*  
+4. UPSTREAM_RECONCILIATION_ACCEPTANCE_2026-09-29.md  
+5. COMMS + AIRCRAFT_COCKPIT + AIRCRAFT_ATC_AUDIO (Broadcastify PERMISSION REQUIRED; LiveATC blocked)  
+6. CHATGPT_NON3D_AUDIT_FIXES_2026-09-29.md (**SHIPPED Fly v58 / EE-AUDIT-10**)
+
+## Completed on Fly (recent)
+
+| Slice | Fly | Notes |
+| --- | --- | --- |
+| EE-LIVE-1…5 | v45–v49 | loaders/tz, nav, LIVE EARTH, camera rank, Analyst selection coherence |
+| EE-EVENTS-0…4 | v50–v57 | contract, adapters, markers, detail+RELATED, Analyst event tools |
+| Graphics / non-3D | v55 | `?ee_non3d=1`; Retry 3D / Continue without 3D |
+| EE-AUDIT-10 workflows | **v58** | shared selection, open camera, place select, TRACK Show, MORE logout, marker honesty, banner, empties, health scopes, event detail |
+
+## ChatGPT non-3D audit — **SHIPPED** (EE-AUDIT-10 / Fly v58)
+
+Evidence table: [`docs/EE_AUDIT10_WORKFLOW_FINDINGS.md`](docs/EE_AUDIT10_WORKFLOW_FINDINGS.md) · milestone: [`docs/EE_AUDIT10_WORKFLOW_MILESTONE.md`](docs/EE_AUDIT10_WORKFLOW_MILESTONE.md)  
+Journeys: `node --test src/atlas/audit10Workflow.test.mjs` → **9/9 pass**.  
+Non-claims: 3D / iPhone / aircraft movement / weather / roads **not** re-verified here.
+
+**Paused / next (not started):** EE-EVENTS-5/6 FOLLOW, upstream delta import, Cockpit FPV build, ATC audio (Broadcastify owner), Photoreal billing.
+
+## Non-3D audit entry
+
+After reviewer login: **https://eartheye.us/?ee_non3d=1**
+
+## Tests
+
+Prefer focused suites under `src/events/`, `src/app/graphicsRecovery.test.mjs`, `src/atlas/analystIdentity.test.mjs`. Full dirty-branch suite has pre-existing failures — do not treat “5000 passed” as journey acceptance.
+
+## Next steps (incoming developer)
+
+1. Checkout `fix/audit10-workflow` @ `5ae5e08` as current buildable tip; re-run ChatGPT non-3D journeys on live v58.  
+2. Treat commit `5ae5e08` as **UNFINISHED WIP** (dirty leftovers after v58). Prefer audit-10 commits through `258ea66` as the v58-aligned tip until WIP is reviewed.  
+3. EE-EVENTS-5/6 only if FOLLOW has real retention/notify mechanism.  
+4. Upstream delta matrix (`docs/UPSTREAM_DELTA_REVIEW.md`) + stuck roads root-cause — selective adapt, no wholesale merge.  
+5. Aircraft Cockpit (reconstructed telemetry) + iPhone acceptance.  
+6. Owner gates: Google Map Tiles key (Photoreal), OAuth/email, DelDOT/Maryland, AO-1 OpenAI, Broadcastify.  
+7. Physical iPhone gate separate from EMULATION.
+
+## Rollback example
 
 ```bash
-cd earth-eye
-npm ci
-cp .env.example .env   # names only; leave values empty until you have keys
-npm run doctor
-npm run dev
+HOME=/home/box env -u FLY_API_TOKEN -u FLY_ACCESS_TOKEN \
+  fly deploy -a eartheye --ha=false \
+  --image registry.fly.io/eartheye:deployment-01M3PFGP98Z97PBJPZAVSP1BGV
 ```
 
-Default port in `.env.example` is `4173`, bound to localhost. The sandbox preview used `HOST=0.0.0.0 PORT=8080` so an iframe could see it. For a normal machine, leave `HOST` unset.
+## Important architecture notes
 
-Other useful commands already in the repo: `npm test`, `npm run build`, `npm run preview`.
-
-There is no `.env` in this zip. `.env.example` has empty placeholders only.
-
-## What was changed from upstream
-
-Behavior changes are small. Branding and CCTV labeling are the product edits. Everything else is the upstream app.
-
-- `public/logo.svg` — Earth Eye wordmark. Letters are static SVG text. The globe group (`#globe`) spins, a highlight pulses, and two orbit groups (`#globe_cage`) carry small ticks. CSS animation lives inside the SVG. `prefers-reduced-motion` turns it off. The existing logo-gaze code still looks for `#globe` and `#globe_cage`.
-- `public/favicon.svg` — new, static globe mark for the browser tab. Untracked upstream.
-- `index.html` — title, description, application-name, favicon.
-- `src/ui/templates/scene-chrome.html` — header is the wordmark only. Subtitle: `EARTH EYE · eartheye.us`.
-- `src/ui/templates/hud-loading.html` — same wordmark, no second text title.
-- `src/ui/templates/welcome.html` — first-run sentence and mic tip rewritten. Not the upstream marketing line.
-- `src/ui/styles/foundation.css`, `controls.css`, `responsive.css` — wordmark size, monochrome shadow, no loader scale pulse, small screens keep the wordmark instead of hiding the title.
-- Visible strings `Atlas Eye` / `ATLAS EYE` renamed to Earth Eye in `src/main.js`, `src/hudSummaryResponse.js`, `src/voice/realtimeViewport.js`, `server/providers/openai/instructions.js`, `scripts/setup-doctor.mjs`, `pinokio/pinokio.js`, and matching tests (`src/pinokioLauncherContract.test.mjs`, `src/firstRunExperience.test.mjs`). Comment-only in `src/ui/applicationShell.js`.
-- `README.md` — short Earth Eye banner above the upstream readme. Package name note is in that banner.
-- `server/providers/cctv/sources.js` — TfL JamCams use `feedType: 'mp4'` when Open Data `videoUrl` is an official-bucket `.mp4`. Otherwise they stay still images. `snapshotUrl` remains the still.
-- `src/layers/cctv/presentation.js`, `src/ui/cctvFrames.js`, `src/ui/cctvPresentation.js` — camera badge and meta line say `STILL IMAGE ONLY`, `VIDEO CLIP`, or `LIVE VIDEO`. Stills are not given a fake video player.
-- `build/vite.js` — if `HOST` is `0.0.0.0` or `::`, frame-ancestors is relaxed so an embedded preview can show the page. Any other host keeps `X-Frame-Options: DENY` and `frame-ancestors 'none'`. Revert this if you do not need iframe embedding.
-
-`earth-eye-vs-upstream.patch` is `git diff` against `81eb443` plus the new favicon is only in the tree (untracked, so it is not in the patch). Copy `public/favicon.svg` with the tree.
-
-## Logo files
-
-- `public/logo.svg` — animated header wordmark
-- `public/favicon.svg` — static tab icon
-- Header sizing: `src/ui/styles/foundation.css` (`#title-bar .title-logo`, `.brand-logo`)
-- Loader sizing: `src/ui/styles/controls.css` (`.loader-logo`)
-- Narrow layout: `src/ui/styles/responsive.css`
-
-## Layers
-
-The layer system is the upstream one. This checkout did not replace feeds with fake dots. Labels below are from probing the dev server on 28 Sep 2026. Re-check after you boot it; public feeds move.
-
-| Layer | Status at last probe | Key |
-|---|---|---|
-| Basemap | Keyless Esri World Imagery. OSM is in the map tray. | `GOOGLE_MAPS_API_KEY` and/or `CESIUM_ION_TOKEN` for photorealistic 3D, ion imagery, terrain |
-| Aircraft | Keyless live via adsb.lol | Optional OpenSky: `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET` (`OPENSKY_AUTH_MODE`) |
-| Military flights | Same adsb.lol feed, military filter | none for the keyless path |
-| Ships / AIS | Needs a key. Empty without it | `AISSTREAM_API_KEY` |
-| Satellites | CelesTrak was failing (HTTP 502) during the probe. No invented fallback | none |
-| Earthquakes | Keyless USGS | none |
-| Active fires | Empty until a key is set. UI already says key required | `FIRMS_MAP_KEY` |
-| Fire perimeters | Keyless NIFC-style public feed when the upstream loader succeeds | none |
-| Weather / radar / clouds / lightning | Upstream NOAA / nowCOAST / GIBS paths. No key for the public layers | none |
-| CCTV | Catalog loads. Most cameras are stills and must read `STILL IMAGE ONLY`. HLS sources read `LIVE VIDEO`. TfL clips read `VIDEO CLIP` when an mp4 URL is present. Playback goes through the repo proxy `/api/cctv/media` | Ontario 511 was returning Invalid Key and contributing no cameras. Packs can be turned off with `CCTV_*_ENABLED=0` |
-| Traffic | Upstream simulation when no key. Live tiles need a key | `TOMTOM_API_KEY` |
-| Launches | Keyless Launch Library 2. A token only raises the allowance | `LL2_API_TOKEN` optional |
-| Radio | Upstream radio layer. Not re-verified end-to-end in this pass | none for the public streams |
-| Transit | Keyless feeds the upstream adapters already ship (MBTA responded in the probe) | none for those public feeds |
-| Infrastructure, cables, datacenters, dams | Bundled / upstream datasets, not a live sensor | none |
-| Recent imagery | Upstream layer. Not given a fake live feed | depends on the upstream provider; see `DATA_SOURCES.md` |
-| Voice | Off until a key is saved. Mic tip says so | `OPENAI_API_KEY` |
-| Places / Street View | Server routes need a Google key | `GOOGLE_MAPS_API_KEY` or `GOOGLE_MAPS_SERVER_API_KEY` |
-
-Do not describe simulated traffic, a missing FIRMS key, or a CelesTrak outage as live.
-
-## API key names
-
-Values are not in this zip. Names only:
-
-`GOOGLE_MAPS_API_KEY`, `GOOGLE_MAPS_SERVER_API_KEY`, `CESIUM_ION_TOKEN`, `OPENAI_API_KEY`, `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`, `LL2_API_TOKEN`, `FIRMS_MAP_KEY`, `AISSTREAM_API_KEY`, `TOMTOM_API_KEY`.
-
-Related non-secret settings are in `.env.example` (`OPENSKY_AUTH_MODE`, `OPENAI_REALTIME_*`, `VITE_AIS_LIVE_*`, `CCTV_*`, `LOCAL_RECEIVER_FEEDS`, `HOST`, `PORT`, rate-limit knobs). `GOOGLE_MAPS_API_KEY` and `CESIUM_ION_TOKEN` are injected into the browser on purpose. See `SECURITY.md`.
-
-## Screenshots
-
-`handoff-screenshots/` was captured from the dev server, not from a public deploy.
-
-- `earth-eye-logo.png` — header wordmark
-- `console.png` — globe console
-- `layers.png` — layer panel
-- `flir.png` — sensor-mode view
-
-`docs/media/` (upstream demo gifs, about 68 MB) is not in the zip. Those files were not edited. They are still in upstream at commit `81eb443`.
-
-## Suggested takeover
-
-1. Clone upstream at `81eb443`, or use this tree as-is.
-2. Apply `earth-eye-vs-upstream.patch` if you started from a clean clone, then add `public/favicon.svg`.
-3. `npm ci` and `npm run doctor` on Node 24 or 26.
-4. Decide whether to keep the `HOST=0.0.0.0` frame-ancestors exception in `build/vite.js`.
-5. Deploy your own Node host. This app is a Vite server with API middleware, not a static site. GitHub Pages will not run the proxies.
+- Production often ahead of GitHub `main` / old handoff tip — **always** compare Fly image vs git.  
+- Authenticity first: no fake traffic/aircraft/cameras/events.  
+- COMMS owner decision supersedes old radio exclusion in research audit.  
+- Photoreal Path A prepared; billing/key still NEEDS KEY.

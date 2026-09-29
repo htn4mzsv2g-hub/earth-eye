@@ -1,5 +1,19 @@
 # CCTV ground heights
 
+**Authenticity (2026-09-29):** Shipped `provider: "google-3d-tiles"` caches are
+**refused at serve time** unless `CCTV_ALLOW_GOOGLE_HEIGHTS=1`. Google Map Tiles
+ToS forbids extracting/caching derived elevations outside the viewer. Cameras
+fall back to runtime **Re:Earth** open DEM (`terrain.reearth.land`) via the
+terrain-heights proxy. Re-derive a shippable open-DEM sidecar with:
+
+```bash
+node scripts/rederive-cctv-heights-reearth.mjs --limit 200
+```
+
+Target provider string: `reearth-terrain` (WGS84 ellipsoid metres).
+
+---
+
 Precomputed ground height under every camera in the served CCTV catalog and
 under the nine support points of its monitor plane, aligned to work with
 Google Photorealistic 3D Tiles. Heights are WGS84 ellipsoidal metres. The

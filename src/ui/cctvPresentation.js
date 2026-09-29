@@ -1,4 +1,5 @@
 import { createCctvVideoSurface } from './cctvVideo.js';
+import { cctvMediumLabel } from '../sources/cctvTypes.js';
 export function _calBadgeLabel(badge) {
   switch (badge) {
     case 'calibrated':
@@ -155,11 +156,7 @@ export function _renderCctvState(state) {
         ? this._calBadgeLabel(activeCamera.calBadge)
         : '';
       const projLabel = state?.showProjection !== false ? 'MONITOR' : 'OFF';
-      const medium = activeCamera.isVideo
-        ? activeCamera.feedType === 'hls'
-          ? 'LIVE VIDEO'
-          : 'VIDEO CLIP'
-        : 'STILL IMAGE ONLY';
+      const medium = cctvMediumLabel(activeCamera);
       this._cctvMeta.textContent = `${medium} · ${activeCamera.city} · HDG ${Math.round(activeCamera.headingDeg)}° · FOV ${Math.round(activeCamera.fovDeg)}° · RANGE ${Math.round(activeCamera.rangeM)}m · ${projLabel}${calBadge ? ` · ${calBadge}` : ''} · ${provider}${credit}${statusMsg}`;
     } else if (cameras.length > 0) {
       this._cctvMeta.textContent = enabled
@@ -248,7 +245,38 @@ export function _updateCctvSyncChip(loading, enabled) {
     return;
   const total = Number(loading?.total) || 0;
   const loaded = Math.max(0, Math.min(Number(loading?.loaded) || 0, total));
-  const busy = !!enabled && !!loading?.active && total > 0;
+  const active = !!loading?.active;
+  const now =
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
+  // Cap busy so an empty/stuck catalog never leaves "loading frames 0/0" forever.
+  const MAX_BUSY_MS = 45000;
+  if (enabled && active) {
+    if (!this._cctvChipBusyStartedAt) this._cctvChipBusyStartedAt = now;
+  } else {
+    this._cctvChipBusyStartedAt = 0;
+  }
+  const timedOut =
+    enabled &&
+    active &&
+    this._cctvChipBusyStartedAt > 0 &&
+    now - this._cctvChipBusyStartedAt >= MAX_BUSY_MS;
+  const busy = !!enabled && active && total > 0 && !timedOut;
+
+  const flashTerminal = (label, progress) => {
+    this._cctvChipWasBusy = false;
+    this._cctvChipBusyStartedAt = 0;
+    this.actions.setSplitFlapText(this._cctvSyncLabel, label);
+    this._cctvSyncProgress.textContent = progress;
+    this._cctvSyncChip.classList.add('visible');
+    clearTimeout(this._cctvChipHideTimer);
+    this._cctvChipHideTimer = window.setTimeout(() => {
+      if (this.destroyed) return;
+      this._cctvChipHideTimer = null;
+      this._cctvSyncChip.classList.remove('visible');
+    }, 1500);
+  };
 
   if (busy) {
     clearTimeout(this._cctvChipHideTimer);
@@ -262,23 +290,26 @@ export function _updateCctvSyncChip(loading, enabled) {
     return;
   }
 
+  // Empty catalog / zero-frame load / timeout: truthful terminal, never spin.
+  if (enabled && (timedOut || (active && total === 0) || (this._cctvChipWasBusy && total === 0))) {
+    const terminal = timedOut
+      ? 'DEGRADED'
+      : total === 0
+        ? 'NO DATA'
+        : 'NO COVERAGE';
+    flashTerminal(terminal, total > 0 ? `${loaded}/${total}` : '0/0');
+    return;
+  }
+
   if (this._cctvChipWasBusy && enabled && total > 0) {
     // Load just completed — flash the final count, then auto-hide.
-    this._cctvChipWasBusy = false;
-    this.actions.setSplitFlapText(this._cctvSyncLabel, 'camera grid ready');
-    this._cctvSyncProgress.textContent = `${total}/${total}`;
-    this._cctvSyncChip.classList.add('visible');
-    clearTimeout(this._cctvChipHideTimer);
-    this._cctvChipHideTimer = window.setTimeout(() => {
-      if (this.destroyed) return;
-      this._cctvChipHideTimer = null;
-      this._cctvSyncChip.classList.remove('visible');
-    }, 1500);
+    flashTerminal('camera grid ready', `${total}/${total}`);
     return;
   }
 
   if (!this._cctvChipHideTimer) {
     this._cctvChipWasBusy = false;
+    this._cctvChipBusyStartedAt = 0;
     this._cctvSyncChip.classList.remove('visible');
   }
 }

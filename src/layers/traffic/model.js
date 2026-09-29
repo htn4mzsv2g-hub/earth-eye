@@ -272,12 +272,13 @@ export function createModel({ state: layerState, services, parts, source }) {
     // Keyless simulation — one terse line that names the mode and the remedy
     // (owner's copy shape). The chip's own progress text carries "working";
     // this line must never imply a live feed.
+    // Keyless: honest NEEDS KEY (no fake cars presented as traffic).
     return {
       mode,
       error: null,
       loadingLabel: statusUnavailable
-        ? 'SIMULATED — traffic service unreachable'
-        : 'SIMULATED — add TomTom key for live',
+        ? 'NEEDS KEY — traffic status unreachable'
+        : 'NEEDS KEY — TomTom for road conditions (no fake cars)',
     };
   }
 

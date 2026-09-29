@@ -19,7 +19,20 @@ export function createSatelliteSource({
       const response = await fetchImpl(`/api/celestrak/${group}`, { signal });
       const text = response.ok ? await response.text() : '';
       signal?.throwIfAborted();
-      return { ok: response.ok, status: response.status, text };
+      // Earth Eye: the proxy labels a non-CelesTrak fallback body.
+      const tleSource = response.headers?.get?.('x-tle-source') || 'celestrak';
+      // A real CelesTrak copy served from cache after an upstream failure is
+      // a FALLBACK and carries its fetch time.
+      const tleCache = response.headers?.get?.('x-tle-cache') || '';
+      const fetchedAt = response.headers?.get?.('x-tle-fetched-at') || '';
+      return {
+        ok: response.ok,
+        status: response.status,
+        text,
+        tleSource,
+        tleCache,
+        fetchedAt,
+      };
     },
   };
 }

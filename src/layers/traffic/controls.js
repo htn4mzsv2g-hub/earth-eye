@@ -137,6 +137,51 @@ export function createControls({ state: layerState, services, parts, source }) {
      *   mode:'live'|'sim', error:string|null, flowCoveragePct:number,
      *   tilesFetched:number}}
      */
+    getRowControls() {
+      const live = Boolean(layerState._liveMode);
+      const when = layerState._lastUpdate
+        ? new Date(layerState._lastUpdate).toLocaleTimeString('en-US', {
+            timeZone: 'America/Chicago',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          }) + ' CT'
+        : 'never';
+      const cov = Number.isFinite(layerState._flowCoveragePct)
+        ? `${Math.round(layerState._flowCoveragePct)}% cov`
+        : '';
+      if (!live) {
+        return {
+          info: `NEEDS KEY — TomTom for road conditions (no fake cars) · updated ${when}`,
+          legend: [],
+          chips: [],
+        };
+      }
+      const buckets = layerState._bucketCounts || {};
+      return {
+        info: `TomTom flow · ${cov || '—'} · ${when}`,
+        legend: [
+          {
+            label: `Free ${buckets.free || 0}`,
+            color: '#3dd68c',
+            blurb: 'Near free-flow speed',
+          },
+          {
+            label: `Slow ${buckets.slow || 0}`,
+            color: '#f5a524',
+            blurb: 'Congested',
+          },
+          {
+            label: `Jam ${buckets.jam || 0}`,
+            color: '#e5484d',
+            blurb: 'Heavy / stop-and-go',
+          },
+        ],
+        chips: [],
+      };
+    },
+
     getStats() {
       // Outstanding flow work counts as loading: the paint race can leave a
       // TomTom request in flight after the roads have settled, and the shared

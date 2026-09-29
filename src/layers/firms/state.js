@@ -34,6 +34,7 @@ export function createFirmsState({ services, config }) {
   /** True when the proxy served a cached payload past TTL (upstream failing). */
 
   layerState._stale = false;
+  layerState._fallback = null;
 
   /** Surfaced error string when the live fetch failed outright. */
 

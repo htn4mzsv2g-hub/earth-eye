@@ -89,8 +89,14 @@ test('CCTV instances resolve their own application source root and isolate catal
   assert.equal(stream.mediaUrl, '/api/cctv/media/first');
   assert.equal((await first('/media/first')).status, 404);
   const frame = await first('/frame/first');
-  assert.equal(frame.headers['X-CCTV-Source'], 'synthetic');
-  assert.match(frame.body, /&lt;Camera &amp; test&gt;/);
+  // No real frame → an honest 404, never a generated placeholder image.
+  assert.equal(frame.status, 404);
+  assert.equal(frame.headers['X-CCTV-Source'], 'unavailable');
+  assert.equal(frame.headers['Content-Type'], 'application/json');
+  assert.equal(JSON.parse(frame.body).label, '<Camera & test>');
+  const listed = JSON.parse(a.body).sources[0];
+  assert.equal(listed.media.kind, 'none');
+  assert.equal(listed.media.stillPath, null);
   assert.equal(JSON.parse((await first('/health')).body).cameras.length, 1);
   assert.deepEqual(JSON.parse((await second('/health')).body).cameras, []);
 });

@@ -72,6 +72,8 @@ export function createQueries({
         loadingLabel = staleText;
       } else if (layerState._error) {
         loadingLabel = layerState._error;
+      } else if (layerState._lastUpdate && layerState._fallback) {
+        loadingLabel = `FALLBACK · keyless NASA 24h file · ${components.model.formatAgoMinutes(now - layerState._lastUpdate)}`;
       } else if (layerState._lastUpdate) {
         loadingLabel = `LIVE · updated ${components.model.formatAgoMinutes(now - layerState._lastUpdate)}`;
       }
@@ -86,6 +88,10 @@ export function createQueries({
         // from a broken feed, and the row reads as a fault instead of a step
         // the operator can take.
         keyRequired: layerState._keyRequired,
+        fallback: Boolean(layerState._fallback),
+        source: layerState._fallback
+          ? `NASA FIRMS · ${layerState._fallback}`
+          : 'NASA FIRMS',
         error: layerState._keyRequired
           ? 'KEY REQUIRED'
           : layerState._stale

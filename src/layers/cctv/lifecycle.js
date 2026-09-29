@@ -274,7 +274,12 @@ export function createLifecycle({
         layerState._clickHandler,
         (click) => {
           if (!layerState._enabled) return;
-          const picked = layerState._viewer.scene.pick(click.position);
+          // Earth Eye: fingers are wider than cursors; coarse pointers pick
+          // within a 28px box so small camera icons are tappable.
+          const coarse = globalThis.matchMedia?.('(pointer: coarse)')?.matches;
+          const picked = coarse
+            ? layerState._viewer.scene.pick(click.position, 28, 28)
+            : layerState._viewer.scene.pick(click.position);
           const cameraId = parts.selection.extractPickedCameraId(picked);
           if (cameraId) {
             activateCctvCameraFromWorldClick(

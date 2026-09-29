@@ -38,15 +38,11 @@ export function createBrowserViteConfig({
       fs: {
         deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/ENVIRONMENT'],
       },
-      // Loopback keeps the settings document unframeable. A wildcard host is
-      // the embedded preview, which has to be allowed to frame the console.
-      headers:
-        host === '0.0.0.0' || host === '::'
-          ? { 'Content-Security-Policy': 'frame-ancestors *' }
-          : {
-              'X-Frame-Options': 'DENY',
-              'Content-Security-Policy': "frame-ancestors 'none'",
-            },
+      // These headers protect the document containing Provider Settings.
+      headers: {
+        'X-Frame-Options': 'DENY',
+        'Content-Security-Policy': "frame-ancestors 'none'",
+      },
     },
     define: {
       'import.meta.env.GOOGLE_MAPS_API_KEY': JSON.stringify(googleApiKey),

@@ -45,7 +45,8 @@
       "src/data/adsbLolFallback.js",
       "src/data/aisStreamAdapter.js",
       "src/data/aisWatchdog.js",
-      "src/sources/httpBody.js"
+      "src/sources/httpBody.js",
+      "server/providers/policy-flags.js"
     ],
     "external": ["ws"]
   },
@@ -160,6 +161,8 @@
       "server/providers/cctv/media.js",
       "server/providers/cctv/normalize.js",
       "server/providers/cctv/range.js",
+      "server/providers/cctv/mediaKind.js",
+      "server/providers/cctv/permissions.js",
       "server/providers/cctv/sources.js",
       "server/providers/cctv/stream.js",
       "server/providers/common/http.js",
@@ -169,7 +172,8 @@
       "scripts/google-server-key.mjs",
       "src/data/cctvFootprint.js",
       "src/sources/cctvTypes.js",
-      "src/sources/httpBody.js"
+      "src/sources/httpBody.js",
+      "server/providers/policy-flags.js"
     ],
     "external": []
   },
@@ -249,7 +253,8 @@
       "src/data/regionalModel.js",
       "src/nominatimGeocode.js",
       "src/sources/httpBody.js",
-      "src/sources/rateLimit.js"
+      "src/sources/rateLimit.js",
+      "server/providers/policy-flags.js"
     ],
     "external": []
   },
@@ -428,7 +433,8 @@
       "src/ui/cctvControls.js",
       "src/ui/cctvFrames.js",
       "src/ui/cctvVideo.js",
-      "src/ui/cctvPresentation.js"
+      "src/ui/cctvPresentation.js",
+      "src/sources/cctvTypes.js"
     ],
     "external": []
   },
@@ -615,7 +621,8 @@
       "src/ui/shellFacade.js",
       "src/ui/localSdrControls.js",
       "src/layers/localAdsb/feedNames.js",
-      "src/ui/localSdrPresentation.js"
+      "src/ui/localSdrPresentation.js",
+      "src/sources/cctvTypes.js"
     ],
     "external": ["cesium"]
   },
@@ -719,7 +726,8 @@
       "src/director/sharing/lifetime.js",
       "src/director/authoring.js",
       "src/scenes/sharing.js",
-      "src/ui/sceneSharing.js"
+      "src/ui/sceneSharing.js",
+      "src/policy/devFlags.js"
     ],
     "external": ["cesium"]
   },
@@ -1096,7 +1104,8 @@
       "src/overlays/worldOverlayTokens.js",
       "src/data/cctvFootprint.js",
       "src/data/inputOwnership.js",
-      "src/layers/cctv/sourcePolicy.js"
+      "src/layers/cctv/sourcePolicy.js",
+      "src/sources/cctvTypes.js"
     ],
     "external": ["hls.js", "cesium"]
   },
@@ -1267,6 +1276,22 @@
       "./standalone/catalog"
     ],
     "modules": [
+      "src/atlas/providerRegistry.mjs",
+      "src/atlas/dataSourceRegistry.js",
+      "src/atlas/dataSourcesPanel.js",
+      "src/atlas/cctvCatalog.js",
+      "src/atlas/cctvBrowser.js",
+      "src/atlas/analystTools.js",
+      "src/atlas/analystPanel.js",
+      "src/atlas/theme.css",
+      "src/atlas/airports.js",
+      "src/atlas/commandParser.js",
+      "src/atlas/atlas.css",
+      "src/atlas/console.js",
+      "src/atlas/mobilePolicy.js",
+      "src/atlas/mobileShell.js",
+      "src/atlas/sessionControl.js",
+      "src/atlas/mobile.css",
       "src/cyberSonarScene.js",
       "src/cyberSonar.js",
       "src/hudLayouts.js",
@@ -1961,7 +1986,12 @@
       "src/layers/recentImagery/thumbnails.js",
       "src/maps/imageryHost.js",
       "src/ui/recentImagery.js",
-      "src/ui/imageryBoxTool.js"
+      "src/ui/imageryBoxTool.js",
+      "src/sources/cctvTypes.js",
+      "src/policy/devFlags.js",
+      "src/atlas/enablePolicy.js",
+      "src/atlas/assetCredits.js",
+      "src/atlas/licensesPanel.js"
     ],
     "external": [
       "hls.js",
@@ -2422,7 +2452,9 @@
       "src/layers/recentImagery/catalog.js",
       "src/layers/recentImagery/rendering.js",
       "src/layers/recentImagery/thumbnails.js",
-      "src/maps/imageryHost.js"
+      "src/maps/imageryHost.js",
+      "src/sources/cctvTypes.js",
+      "src/policy/devFlags.js"
     ],
     "external": [
       "hls.js",

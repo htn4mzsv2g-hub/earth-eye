@@ -5,6 +5,7 @@ import {
 import * as Cesium from 'cesium';
 import { isPointerFree } from '../../data/inputOwnership.js';
 import { CONTEXT_TOP_N } from './policy.js';
+import { requestEventDetail } from '../../data/eventDetail.js';
 
 export function createSelection({
   layerState,
@@ -122,7 +123,10 @@ export function createSelection({
     try {
       registerFireContext(fire);
       layerState._contextIds.add(fireDetectionKey(fire));
-      if (publishSelection) selectEntityContext(fire.contextEntity);
+      if (publishSelection) {
+        selectEntityContext(fire.contextEntity);
+        requestEventDetail(id, { eventId: fireDetectionKey(fire) });
+      }
     } catch {
       // context store unavailable — the selection label still works
     }
@@ -196,13 +200,22 @@ export function createSelection({
       latitude: fire.lat,
       longitude: fire.lon,
       properties: {
+        eventType: 'fire',
         frp: fire.frp,
         confidence: components.model.confidenceBucket(fire.confidence),
         age:
           fire.acqMs > 0
             ? components.model.formatAge(Date.now() - fire.acqMs)
             : 'unknown',
+        temporalStatus:
+          fire.acqMs > 0
+            ? Date.now() - fire.acqMs > 36e5
+              ? 'stale'
+              : 'current'
+            : 'unknown',
         sensor: fire.sensor || 'unknown',
+        source: 'NASA FIRMS',
+        note: 'FRP is instrument-reported fire radiative power, not an invented intensity.',
       },
     });
     return recordId;

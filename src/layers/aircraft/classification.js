@@ -132,9 +132,9 @@ export function createMilitaryRegistry({ source, now = Date.now } = {}) {
       const ids =
         typeof requestSource.getIdentities === 'function'
           ? await requestSource.getIdentities({}, { signal })
-          : (await requestSource.getSnapshot({}, { signal })).records.map(
-              (record) => record.id,
-            );
+          : (await requestSource.getSnapshot({}, { signal })).records
+              .filter((record) => record.militaryFlag !== false)
+              .map((record) => record.id);
       signal.throwIfAborted();
       if (lifetime !== owner) return;
       if (!Array.isArray(ids))

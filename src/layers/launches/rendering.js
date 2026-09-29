@@ -14,6 +14,14 @@ export function createRendering({
 }) {
   const { getSatelliteOrbitTrack, findSatelliteOrbitTrackInTle } =
     services.satellites;
+  // Earth Eye: reconstructed ascent/recovery paths, projected orbits and the
+  // REPLAY ASCENT animation are estimates, not observations. The application
+  // wiring turns them off in production (dev-only build flag); a standalone
+  // layer without the option keeps upstream behaviour.
+  const reconstructionAllowed = () =>
+    typeof services.reconstructedTracks === 'function'
+      ? services.reconstructedTracks() !== false
+      : services.reconstructedTracks !== false;
 
   function setGraphicVisibility(graphic, visible, time) {
     if (!graphic) return;
@@ -96,11 +104,17 @@ export function createRendering({
             launchTime: launch.launchTime,
           })
         : null);
+    const reconstruct = reconstructionAllowed();
+    // Only a real, propagated satellite orbit is drawn in production; the
+    // projected "approximate mission orbit" and its moving estimated-position
+    // marker would present a reconstruction as live.
     const orbitPath = !orbitAllowed
       ? null
       : satelliteTrack?.orbitPath?.length > 1
         ? satelliteTrack.orbitPath
-        : parts.paths.approximateOrbitPath(launch);
+        : reconstruct
+          ? parts.paths.approximateOrbitPath(launch)
+          : null;
     launch.recoveryStages.forEach((stage) => {
       stage.endpoint = parts.paths.landingEndpoint(
         stage,
@@ -290,6 +304,8 @@ export function createRendering({
           launch,
           ascentPath.at(-1),
         );
+        // Stage re-entry/recovery arcs are always reconstructed estimates.
+        if (!reconstruct) return;
         const path = parts.paths.stageReentryRecoveryPath(
           ascentPath,
           stage.endpoint,
@@ -375,20 +391,21 @@ export function createRendering({
           },
         });
       });
-      layerState._replayTracks.set(launch.id, {
-        ascentPath,
-        animatedOrbitPath,
-        orbitFrameSphere:
-          parts.camera.replayOrbitFrameSphere(animatedOrbitPath),
-        ascentDurationSec,
-        beginReplayFrame,
-        getReplayState,
-        lastCameraHeading: Math.PI,
-        orbitCameraWorldFrame: false,
-        lastVehicleRotation: 0,
-        lastOverlayWindowPosition: null,
-        lastOverlayMode: null,
-      });
+      if (reconstruct)
+        layerState._replayTracks.set(launch.id, {
+          ascentPath,
+          animatedOrbitPath,
+          orbitFrameSphere:
+            parts.camera.replayOrbitFrameSphere(animatedOrbitPath),
+          ascentDurationSec,
+          beginReplayFrame,
+          getReplayState,
+          lastCameraHeading: Math.PI,
+          orbitCameraWorldFrame: false,
+          lastVehicleRotation: 0,
+          lastOverlayWindowPosition: null,
+          lastOverlayMode: null,
+        });
       let livePosition = Cesium.Cartesian3.fromDegrees(
         orbitCurrent.longitude,
         orbitCurrent.latitude,
@@ -526,6 +543,10 @@ export function createRendering({
           gapPx: 8,
         }),
       );
+      // The replay vehicle and the launch-site-to-insertion transfer line are
+      // reconstructions (supplied trajectory points are already drawn above
+      // as rocket-trajectory segments).
+      if (!reconstruct) return;
       const replayPosition = new Cesium.CallbackProperty(() => {
         const state = getReplayState();
         return state.ascending

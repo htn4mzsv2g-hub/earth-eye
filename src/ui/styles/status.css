@@ -173,6 +173,7 @@
   line-height: 1;
 }
 
+#live-earth-chip,
 #traffic-sync-chip,
 #cctv-sync-chip {
   position: fixed;
@@ -204,11 +205,25 @@
     0 0 14px rgba(0, 212, 255, 0.08);
 }
 
+#live-earth-chip[hidden] {
+  display: none;
+}
+
+#live-earth-chip[data-state='degraded'] {
+  color: #ffd488;
+  border-color: rgba(255, 184, 77, 0.42);
+}
+
+#live-earth-chip[data-state='loading'] {
+  color: rgba(184, 244, 255, 0.92);
+}
+
 /* Stacked below the traffic chip so both can show at once */
 #cctv-sync-chip {
   top: 146px;
 }
 
+#live-earth-chip.visible,
 #traffic-sync-chip.visible,
 #cctv-sync-chip.visible {
   opacity: 1;

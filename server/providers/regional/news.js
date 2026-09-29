@@ -1,3 +1,4 @@
+import { serviceBlockedByCommercialSafe } from '../policy-flags.js';
 import { fetchRegionalText, fetchRegionalJson } from './http.js';
 import { normalizeRegionalArticles } from '../../../src/data/regionalModel.js';
 
@@ -67,19 +68,26 @@ async function fetchRegionalNews(place) {
     gl: 'US',
     ceid: 'US:en',
   });
-  try {
-    const xml = await fetchRegionalText(
-      `https://news.google.com/rss/search?${rssParams}`,
-      {
-        headers: { 'User-Agent': 'GodsEyeView/0.1' },
-        timeoutMs: 12_000,
-      },
-    );
-    const articles = normalizeRssArticles(xml, 5);
-    if (articles.length)
-      return { status: 'ready', query, articles, source: 'Google News RSS' };
-  } catch {
-    /* fall through to the existing free index */
+  // Google News RSS is personal/non-commercial only; commercial-safe mode
+  // goes straight to GDELT (unrestricted with citation).
+  if (!serviceBlockedByCommercialSafe('google-news-rss')) {
+    try {
+      const xml = await fetchRegionalText(
+        `https://news.google.com/rss/search?${rssParams}`,
+        {
+          headers: {
+            'User-Agent':
+              'earth-eye-news/1.0 (private hosted instance; +https://eartheye.us)',
+          },
+          timeoutMs: 12_000,
+        },
+      );
+      const articles = normalizeRssArticles(xml, 5);
+      if (articles.length)
+        return { status: 'ready', query, articles, source: 'Google News RSS' };
+    } catch {
+      /* fall through to the existing free index */
+    }
   }
   const params = new URLSearchParams({
     query: `"${String(query).replace(/["\\]/g, ' ').trim()}"`,
@@ -93,7 +101,10 @@ async function fetchRegionalNews(place) {
     const payload = await fetchRegionalJson(
       `https://api.gdeltproject.org/api/v2/doc/doc?${params}`,
       {
-        headers: { 'User-Agent': 'GodsEyeView/0.1' },
+        headers: {
+          'User-Agent':
+            'earth-eye-news/1.0 (private hosted instance; +https://eartheye.us)',
+        },
         timeoutMs: 12_000,
       },
     );

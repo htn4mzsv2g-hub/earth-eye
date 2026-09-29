@@ -726,3 +726,39 @@ test('only an explicit navigation request permits resolving distant annotation t
   assert.deepEqual(received.map(options => options.allowDistant), [false, true]);
   engine.destroy();
 });
+
+test('route annotate refuses straight-line fallback and reports route unavailable', async (t) => {
+  installAnimationFrameStubs(t);
+  const { renderer, calls } = fakeRenderer();
+  renderer.destroy = () => {};
+  let routeCalls = 0;
+  const engine = createAnnotationEngine({
+    viewer: {},
+    renderer,
+    placeSearch: {
+      route: async () => {
+        routeCalls += 1;
+        return null; // routing service unavailable / no route
+      },
+    },
+    resolveTarget: async () => ({
+      lon: -97.7431,
+      lat: 30.2672,
+      source: 'test',
+    }),
+  });
+  t.after(() => engine.destroy());
+  const out = await engine.annotate([
+    {
+      type: 'route',
+      points: [{}, {}],
+      mode: 'foot',
+      label: 'test walk',
+    },
+  ]);
+  assert.equal(routeCalls, 1);
+  assert.equal(out.drawn, 0);
+  assert.equal(out.failed, 1);
+  assert.match(String(out.results?.[0]?.error || ''), /route unavailable/i);
+  assert.equal(calls.add, 0, 'must not draw a straight-line stand-in');
+});

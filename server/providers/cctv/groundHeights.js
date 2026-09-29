@@ -11,9 +11,12 @@ let _cache = null;
 
 /**
  * Load the precomputed ground-height sidecar (heights under each camera's mount
- * and monitor-plane support points, aligned to the Google 3D Tiles surface). Cached by file mtime so a
- * catalog refresh re-reads only when the file changed. Missing or malformed
- * files mean "no shipped heights", never an error.
+ * and monitor-plane support points). Open DEM only: `provider` must be
+ * `reearth-terrain` (or another allowlisted open DEM). Google Photorealistic
+ * 3D Tiles–derived caches (`google-3d-tiles`) are refused by default — Google
+ * Map Tiles ToS forbids extracting/caching derived heights outside the viewer.
+ * Set CCTV_ALLOW_GOOGLE_HEIGHTS=1 only for local regression comparison.
+ * Missing/malformed/refused files mean "no shipped heights" (runtime Re:Earth).
  * @param {string} sourceRoot
  * @returns {Record<string, object>} camera id → sidecar entry
  */
@@ -29,6 +32,31 @@ export function loadGroundHeights(sourceRoot = process.cwd()) {
       return _cache.cameras;
     }
     const parsed = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+    const provider = String(parsed?.provider || '').trim();
+    const OPEN_DEM = new Set(['reearth-terrain', 'copernicus-glo30']);
+    const allowGoogle =
+      String(process.env.CCTV_ALLOW_GOOGLE_HEIGHTS || '')
+        .trim()
+        .toLowerCase() === '1' ||
+      String(process.env.CCTV_ALLOW_GOOGLE_HEIGHTS || '')
+        .trim()
+        .toLowerCase() === 'true';
+    if (provider === 'google-3d-tiles' && !allowGoogle) {
+      console.warn(
+        '[CCTV] Refusing google-3d-tiles ground heights (ToS / authenticity). ' +
+          'Runtime Re:Earth DEM will place cameras. Re-derive with ' +
+          'scripts/rederive-cctv-heights-reearth.mjs',
+      );
+      _cache = { path: resolved, mtimeMs: stat.mtimeMs, cameras: {} };
+      return {};
+    }
+    if (provider && !OPEN_DEM.has(provider) && provider !== 'google-3d-tiles') {
+      console.warn(
+        `[CCTV] Unknown ground-heights provider "${provider}" — not attaching shipped heights`,
+      );
+      _cache = { path: resolved, mtimeMs: stat.mtimeMs, cameras: {} };
+      return {};
+    }
     const cameras =
       parsed &&
       typeof parsed === 'object' &&

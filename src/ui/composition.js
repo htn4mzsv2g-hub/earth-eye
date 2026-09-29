@@ -40,7 +40,18 @@ import {
   setDetectionStyle,
   setDetectionTuning,
 } from '../data/detection.js';
-import { isTr3b, toggleTr3b } from '../data/tr3bRegistry.js';
+import { isTr3b, toggleTr3b as toggleTr3bDev } from '../data/tr3bRegistry.js';
+import { devExcludedFeaturesEnabled } from '../policy/devFlags.js';
+
+/**
+ * Earth Eye: the TR-3B "black triangle" is fiction presented on real aircraft,
+ * so it exists only behind the dev-only build flag. In production the toggle
+ * is a no-op marked unavailable, and the cockpit removes its button.
+ */
+const tr3bUnavailable = Object.assign(() => false, { tr3bUnavailable: true });
+const toggleTr3b = devExcludedFeaturesEnabled()
+  ? toggleTr3bDev
+  : tr3bUnavailable;
 import {
   holdContinuousRender,
   releaseContinuousRender,

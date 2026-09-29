@@ -12,6 +12,8 @@ import { weatherEffectsProxy } from './regional/weather-effects.js';
 import { cctvProxy } from './cctv.js';
 import { defaultSourceRoot } from './common/source-root.js';
 import { radioBrowserProxy } from './radio.js';
+import { broadcastifyCommsProxy } from './comms/index.js';
+import { workspacesProxy } from './workspaces/index.js';
 import { gbfsProxy } from './gbfs.js';
 import { localReceiversProxy } from './local-receivers.js';
 import { transitProxy } from './transit.js';
@@ -23,8 +25,15 @@ import { googlePlacesContextProxy } from './places.js';
 import { keySetupEndpoint } from '../standalone/key-setup.js';
 import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
+import { nwsAlertsProxy } from './nwsAlerts.js';
 import { cycloneProxy } from './cyclones.js';
 import { windProxy } from './wind.js';
+import { atlasProviderStatus } from './atlas-status.js';
+import { atlasCapabilities } from './capabilities.js';
+import { atlasWorldEventsStatus } from './worldEventsStatus.js';
+import { googlePhotorealHealth } from './googlePhotorealHealth.js';
+import { collectionPlugin } from '../collection/plugin.js';
+import { openaiAnalystPlugin } from '../openaiAnalyst/plugin.js';
 
 /** Construct the local provider plugins in their established order. */
 function localProviderPlugins() {
@@ -43,6 +52,8 @@ function localProviderPlugins() {
     weatherEffectsProxy(),
     cctvProxy({ sourceRoot: defaultSourceRoot }),
     radioBrowserProxy(),
+    broadcastifyCommsProxy(),
+    workspacesProxy(),
     gbfsProxy(),
     localReceiversProxy(),
     transitProxy(),
@@ -55,6 +66,15 @@ function localProviderPlugins() {
     weatherProxy(),
     cycloneProxy(),
     firePerimetersProxy(),
+    nwsAlertsProxy(),
+    // Earth Eye: read-only set/unset report; kept ahead of key setup so the
+    // upstream key-setup endpoint stays last before the 404 fallback.
+    atlasProviderStatus(),
+    atlasCapabilities(),
+    atlasWorldEventsStatus(),
+    googlePhotorealHealth(),
+    openaiAnalystPlugin(),
+    collectionPlugin(),
     keySetupEndpoint(),
   ];
 }

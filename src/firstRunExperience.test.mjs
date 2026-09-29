@@ -16,8 +16,22 @@ import {
   rememberFirstRunSessionDismissed,
   runFirstRunChoice,
   setFirstRunSuppressed,
-  shouldShowFirstRun,
+  shouldShowFirstRun as shouldShowFirstRunAtlas,
+  ATLAS_LAUNCHER_DEFAULT_ON,
 } from './firstRunExperience.js';
+
+// Earth Eye keeps the upstream show policy intact behind a switch and opens
+// straight into the console by default. The upstream policy tests below run
+// with that switch ON; the Earth Eye default is pinned separately.
+const shouldShowFirstRun = (input = {}) =>
+  shouldShowFirstRunAtlas({ launcherDefaultOn: true, ...input });
+
+test('Earth Eye: the launcher is opt-in (?welcome=1) by default', () => {
+  assert.equal(ATLAS_LAUNCHER_DEFAULT_ON, false);
+  const base = { storage: null, sessionStorageRef: null };
+  assert.equal(shouldShowFirstRunAtlas({ ...base, location: { search: '' } }), false);
+  assert.equal(shouldShowFirstRunAtlas({ ...base, location: { search: '?welcome=1' } }), true);
+});
 
 function memoryStorage(key, value = null) {
   const values = new Map(value == null ? [] : [[key, value]]);
@@ -572,8 +586,11 @@ test('markup, startup ordering and accessibility remain pinned', () => {
   // unspaced em dash included. This is copy, not prose to be improved in a
   // passing edit — changing it needs the owner, not a nicer-sounding rewrite.
   assert.ok(
-    html.includes('<p id="first-run-description">A public-signal console. The picture looks restricted. The feeds are not.</p>'),
-    'the first-run line must ship as the Earth Eye wording',
+    // Earth Eye: the upstream owner-authored line was replaced with original,
+    // plainly factual copy for the rebrand; it is pinned verbatim instead.
+    html.includes('<p id="first-run-description">Everything on this globe comes from public feeds.'
+      + ' Some are delayed, coarse or simulated, and each layer badge says which.</p>'),
+    'the first-run line must ship exactly as written',
   );
 
   // Menu order is the owner's, read straight off the markup.
@@ -668,10 +685,12 @@ test('the voice TOOL SCHEMA matches the pinned release — the mission mapping i
   const block = JSON.stringify(legacyTools);
   // Re-derived for the additive `local-adsb` set_layer_visibility value and
   // its common-name mapping; the missions still ride existing tools.
-  assert.equal(block.length, 27432, 'serialized tool schema length drifted');
+  // Earth Eye: re-derived after the brand name in three tool descriptions
+  // changed ("God's Eye View" → "Earth Eye"); no tool, property or ordering moved.
+  assert.equal(block.length, 27417, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    'a2a4a787f4528f75b01f3f42caec636f29c37452c0d45b11f4f986171d6be57d',
+    '51c0141babcc921751bd00257ddb21f0b8a46f3cc640282bd1f57fc2e3ef1a2d',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(new URL('../server/providers/openai/instructions.js', import.meta.url), 'utf8');

@@ -140,3 +140,22 @@ function fixtureSurface(signal) {
     eventTarget: null,
   });
 }
+
+test('excluded layers have no user-facing control: ALPR, simulated traffic and radio are hidden from the layer panel', (t) => {
+  const a = new AbortController();
+  t.after(() => a.abort());
+  const before = globalThis.__EE_DEV_EXCLUDED__;
+  globalThis.__EE_DEV_EXCLUDED__ = false;
+  t.after(() => {
+    if (before === undefined) delete globalThis.__EE_DEV_EXCLUDED__;
+    else globalThis.__EE_DEV_EXCLUDED__ = before;
+  });
+  const catalog = createApplicationCatalog({
+    sources: fixtureSources([], []),
+    signal: a.signal,
+    surface: fixtureSurface(a.signal),
+  });
+  for (const id of ['alpr-cameras', 'traffic', 'radio'])
+    assert.equal(catalog.get(id)?.showInTogglePanel, false, `${id} hidden`);
+  assert.notEqual(catalog.get('earthquakes')?.showInTogglePanel, false);
+});
