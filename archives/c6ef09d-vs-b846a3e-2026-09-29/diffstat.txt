@@ -1,0 +1,177 @@
+# diffstat: c6ef09d (local tip) vs b846a3e (known-good / Fly v66)
+#
+# ANCESTRY: DIVERGENT. `git merge-base b846a3e c6ef09d` returns empty (exit 1).
+# Neither commit is an ancestor of the other.
+#   commits reachable tip-not-kg: 115
+#   commits reachable kg-not-tip: 7
+# Tree-level `git diff` still works and is recorded below.
+# Also see meta/checksum-compare.txt for blob-SHA file-level compare.
+#
+# Parent of tip c6ef09d: e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3 (NOT on GitHub remotes as of archive time).
+# Working trees: both clean (no extra dirty/untracked product source beyond the tip commit).
+
+=== git diff --stat (ALL tracked paths, including omitted media) ===
+ Dockerfile                                         |  10 +-
+ HANDOFF.md                                         |  49 +-
+ build/application-html.js                          |  16 +-
+ build/vite.js                                      |  19 +-
+ config/cctv_sources.shinjuku.json                  |  59 --
+ docs/EE_AUDIT10_WORKFLOW_FINDINGS.md               |   2 +-
+ docs/EE_CHECKPOINT_VERIFY.md                       |  84 +++
+ docs/EE_EVENTS_FOLLOW_FINDINGS.md                  |  39 ++
+ docs/EE_EVENTS_FOLLOW_MILESTONE.md                 |  37 ++
+ docs/EE_GRAPHICS_RECOVERY_FINDINGS.md              |   2 +-
+ docs/EE_GRAPHICS_RECOVERY_MILESTONE.md             |   2 +-
+ ...EE_IPHONE_GLOBE_FREEZE_REGRESSION_2026-09-29.md | 110 ++++
+ docs/IPHONE_GLOBE_RELEASE_MAP.md                   |  65 ---
+ docs/UPSTREAM_DELTA_REVIEW.md                      |   8 +
+ docs/media/01-style-sweep.gif                      | Bin 0 -> 1004961 bytes
+ docs/media/01-voice-annotate-zilker.gif            | Bin 0 -> 5917886 bytes
+ docs/media/03-austin-cctv.gif                      | Bin 0 -> 6064699 bytes
+ docs/media/04-airport-distance.gif                 | Bin 0 -> 3188741 bytes
+ docs/media/05-traffic-to-cctv.gif                  | Bin 0 -> 5080454 bytes
+ docs/media/06-cockpit-ar.gif                       | Bin 0 -> 5557461 bytes
+ docs/media/07-helicopter-loops.gif                 | Bin 0 -> 6242391 bytes
+ docs/media/08-boneyard.gif                         | Bin 0 -> 5014073 bytes
+ docs/media/08-falcon9-replay.gif                   | Bin 0 -> 910111 bytes
+ docs/media/09-undersea-cables.gif                  | Bin 0 -> 1886522 bytes
+ docs/media/10-walking-route-flythrough.gif         | Bin 0 -> 3876526 bytes
+ docs/media/12-switch-aircraft-cockpit.gif          | Bin 0 -> 2259945 bytes
+ docs/media/14-iss-over-ukraine.gif                 | Bin 0 -> 3102742 bytes
+ docs/media/15-global-radio-layer.gif               | Bin 0 -> 2776244 bytes
+ docs/media/README.md                               |  40 ++
+ docs/media/hero-open-source-reveal.gif             | Bin 0 -> 6487951 bytes
+ docs/media/open-source-survey.png                  | Bin 0 -> 130925 bytes
+ .../airport-ground-traffic-google-3d.gif           | Bin 0 -> 1226853 bytes
+ .../military-cockpit-dense-google-3d.gif           | Bin 0 -> 8550813 bytes
+ docs/media/youtube-popular-videos.png              | Bin 0 -> 980981 bytes
+ earth-eye-vs-upstream.patch                        | 556 ------------------
+ handoff-screenshots/console.png                    | Bin 345818 -> 0 bytes
+ handoff-screenshots/earth-eye-logo.png             | Bin 45653 -> 0 bytes
+ handoff-screenshots/flir.png                       | Bin 223803 -> 0 bytes
+ handoff-screenshots/layers.png                     | Bin 401574 -> 0 bytes
+ scripts/ee-iphone-globe-probe.mjs                  | 261 +++++++++
+ scripts/package-boundaries.json                    |  16 +-
+ server/production/static.cache.test.mjs            |  16 +
+ server/production/static.js                        |  12 +-
+ src/app/buildStamp.js                              |  37 --
+ src/app/cameraInputTrace.js                        | 153 -----
+ src/app/cameraInputTrace.test.mjs                  |  82 ---
+ src/app/eeDiagnostics.js                           | 637 +++++++++++++++++++++
+ src/app/eeDiagnostics.test.mjs                     | 167 ++++++
+ src/app/globeDiagnosticsPanel.js                   | 237 --------
+ src/app/globeGestureTrace.js                       | 599 -------------------
+ src/app/globeGestureTrace.test.mjs                 | 425 --------------
+ src/app/globeInteract.js                           | 232 ++++++++
+ src/app/globeInteract.test.mjs                     | 194 +++++++
+ src/app/graphicsRecovery.js                        | 191 +++++-
+ src/app/graphicsRecovery.test.mjs                  | 139 ++++-
+ src/app/loadingScreenRelease.js                    | 203 -------
+ src/app/loadingScreenRelease.test.mjs              | 237 --------
+ src/app/scene.js                                   |   3 -
+ src/app/startupChrome.js                           |  93 ++-
+ src/app/tools.js                                   |  58 +-
+ src/app/viewer.js                                  |   2 -
+ src/atlas/atlas.css                                | 115 ++++
+ src/atlas/console.js                               |  31 +-
+ src/atlas/mobile.css                               |  29 +-
+ src/atlas/mobileGlobeHit.test.mjs                  |  57 --
+ src/atlas/mobileOverlayRestore.test.mjs            |  70 +++
+ src/atlas/mobileShell.js                           | 108 +++-
+ src/atlas/selectionCard.js                         |  38 +-
+ src/atlas/selectionCard.test.mjs                   |   1 +
+ src/atlas/ux4.test.mjs                             |   6 +
+ src/data/cctvGizmo.js                              |  10 -
+ src/data/localGeojsonCore.js                       |  21 +-
+ src/events/index.js                                |   2 +-
+ src/events/live/controller.js                      |   2 +-
+ src/events/live/detail.js                          |   2 +-
+ src/events/live/followAvailability.js              | 106 ++++
+ src/events/live/followHonesty.test.mjs             | 275 +++++++++
+ src/events/live/index.js                           |  13 +-
+ src/events/live/panel.js                           |  27 +-
+ src/events/live/selectionBridge.js                 |   2 +-
+ src/firstRunExperience.test.mjs                    |   8 +-
+ src/main.js                                        |   5 +-
+ src/overlays/worldOverlay.js                       |  21 -
+ src/standalone/startupChrome.test.mjs              | 107 ++--
+ src/ui/imageryBoxTool.js                           |  11 -
+ src/ui/shareRestoration.js                         |  43 +-
+ src/ui/styles/controls.css                         |  84 +--
+ src/ui/styles/foundation.css                       |   7 +
+ src/voice/gevActions.test.mjs                      |  13 +-
+ 89 files changed, 3136 insertions(+), 3170 deletions(-)
+
+=== git diff --stat (excluding docs/media — matches included patch scope more closely) ===
+ Dockerfile                                         |  10 +-
+ HANDOFF.md                                         |  49 +-
+ build/application-html.js                          |  16 +-
+ build/vite.js                                      |  19 +-
+ config/cctv_sources.shinjuku.json                  |  59 --
+ docs/EE_AUDIT10_WORKFLOW_FINDINGS.md               |   2 +-
+ docs/EE_CHECKPOINT_VERIFY.md                       |  84 +++
+ docs/EE_EVENTS_FOLLOW_FINDINGS.md                  |  39 ++
+ docs/EE_EVENTS_FOLLOW_MILESTONE.md                 |  37 ++
+ docs/EE_GRAPHICS_RECOVERY_FINDINGS.md              |   2 +-
+ docs/EE_GRAPHICS_RECOVERY_MILESTONE.md             |   2 +-
+ ...EE_IPHONE_GLOBE_FREEZE_REGRESSION_2026-09-29.md | 110 ++++
+ docs/IPHONE_GLOBE_RELEASE_MAP.md                   |  65 ---
+ docs/UPSTREAM_DELTA_REVIEW.md                      |   8 +
+ earth-eye-vs-upstream.patch                        | 556 ------------------
+ scripts/ee-iphone-globe-probe.mjs                  | 261 +++++++++
+ scripts/package-boundaries.json                    |  16 +-
+ server/production/static.cache.test.mjs            |  16 +
+ server/production/static.js                        |  12 +-
+ src/app/buildStamp.js                              |  37 --
+ src/app/cameraInputTrace.js                        | 153 -----
+ src/app/cameraInputTrace.test.mjs                  |  82 ---
+ src/app/eeDiagnostics.js                           | 637 +++++++++++++++++++++
+ src/app/eeDiagnostics.test.mjs                     | 167 ++++++
+ src/app/globeDiagnosticsPanel.js                   | 237 --------
+ src/app/globeGestureTrace.js                       | 599 -------------------
+ src/app/globeGestureTrace.test.mjs                 | 425 --------------
+ src/app/globeInteract.js                           | 232 ++++++++
+ src/app/globeInteract.test.mjs                     | 194 +++++++
+ src/app/graphicsRecovery.js                        | 191 +++++-
+ src/app/graphicsRecovery.test.mjs                  | 139 ++++-
+ src/app/loadingScreenRelease.js                    | 203 -------
+ src/app/loadingScreenRelease.test.mjs              | 237 --------
+ src/app/scene.js                                   |   3 -
+ src/app/startupChrome.js                           |  93 ++-
+ src/app/tools.js                                   |  58 +-
+ src/app/viewer.js                                  |   2 -
+ src/atlas/atlas.css                                | 115 ++++
+ src/atlas/console.js                               |  31 +-
+ src/atlas/mobile.css                               |  29 +-
+ src/atlas/mobileGlobeHit.test.mjs                  |  57 --
+ src/atlas/mobileOverlayRestore.test.mjs            |  70 +++
+ src/atlas/mobileShell.js                           | 108 +++-
+ src/atlas/selectionCard.js                         |  38 +-
+ src/atlas/selectionCard.test.mjs                   |   1 +
+ src/atlas/ux4.test.mjs                             |   6 +
+ src/data/cctvGizmo.js                              |  10 -
+ src/data/localGeojsonCore.js                       |  21 +-
+ src/events/index.js                                |   2 +-
+ src/events/live/controller.js                      |   2 +-
+ src/events/live/detail.js                          |   2 +-
+ src/events/live/followAvailability.js              | 106 ++++
+ src/events/live/followHonesty.test.mjs             | 275 +++++++++
+ src/events/live/index.js                           |  13 +-
+ src/events/live/panel.js                           |  27 +-
+ src/events/live/selectionBridge.js                 |   2 +-
+ src/firstRunExperience.test.mjs                    |   8 +-
+ src/main.js                                        |   5 +-
+ src/overlays/worldOverlay.js                       |  21 -
+ src/standalone/startupChrome.test.mjs              | 107 ++--
+ src/ui/imageryBoxTool.js                           |  11 -
+ src/ui/shareRestoration.js                         |  43 +-
+ src/ui/styles/controls.css                         |  84 +--
+ src/ui/styles/foundation.css                       |   7 +
+ src/voice/gevActions.test.mjs                      |  13 +-
+ 65 files changed, 3096 insertions(+), 3170 deletions(-)
+
+=== checksum summary (non-omitted paths) ===
+# tip-only (added vs kg): 15
+# kg-only (deleted at tip): 12
+# content-changed (blob sha differs): 39
+# identical (same blob sha, non-omitted): 1771

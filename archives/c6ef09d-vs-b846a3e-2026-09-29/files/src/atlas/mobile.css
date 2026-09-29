@@ -1,0 +1,1189 @@
+/* Earth Eye mobile console. Every rule is scoped under html.ee-compact (set
+   by src/atlas/mobileShell.js from COMPACT_MEDIA_QUERY), except the base rule
+   that keeps the new mobile-only elements out of the desktop layout.
+   Visible by default on phones: logo, command bar, key badge, bottom tab bar
+   (+ the required map credits). Everything else opens as a bottom sheet. */
+#ee-tabbar,
+#ee-sheet-bar,
+#ee-key-status,
+#ee-ask-toggle,
+#ee-compass,
+#atlas-dock .ee-compact-only,
+#atlas-disclaimer .ee-disclaimer-short {
+  display: none;
+}
+
+html.ee-compact {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  --ee-safe-top: max(10px, env(safe-area-inset-top));
+  --ee-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ee-bar-h: calc(56px + var(--ee-safe-bottom));
+  /* Compact header: logo only (command bar collapsed into ASK). */
+  --ee-top-h: calc(var(--ee-safe-top) + 44px);
+  --ee-sheet-peek: 28vh;
+  --ee-sheet-half: 52vh;
+  --ee-sheet-full: calc(100dvh - var(--ee-sheet-top) - var(--ee-sheet-bottom));
+  /* Band between a sheet and the tab bar where the required map credits
+     stay readable while any sheet is open. */
+  --ee-credit-h: 46px;
+  --ee-head-h: 52px;
+  --ee-sheet-top: var(--ee-top-h);
+  --ee-sheet-bottom: calc(var(--ee-bar-h) + var(--ee-credit-h));
+  --ee-glass: #0b0e10;
+  --ee-line: rgba(160, 178, 188, 0.22);
+  --ee-green: #7fc8a9;
+  --ee-cyan: #7cc4d8;
+  --ee-sheet-max: calc(100dvh - var(--ee-sheet-top) - var(--ee-sheet-bottom));
+}
+
+/* Nothing on the globe answers touches while a sheet or panel is open, so a
+   scroll that starts in a gap never pans the globe underneath. */
+html.ee-compact[data-ee-overlay] #cesiumContainer canvas {
+  pointer-events: none !important;
+}
+
+/* ── Hidden by default: upstream rails, dock, top icons, HUD corners ────── */
+html.ee-compact #left-panel-stack:not(.ee-sheet-host),
+html.ee-compact #right-context-rail:not(.ee-sheet-host),
+html.ee-compact #command-dock:not(.ee-sheet-host),
+html.ee-compact #top-center-actions,
+html.ee-compact #style-indicator,
+html.ee-compact #atlas-honesty-chip,
+html.ee-compact #atlas-menu-toggle,
+html.ee-compact #title-bar .subtitle,
+html.ee-compact #title-bar .frame-rate-readout,
+html.ee-compact #intel-hud .hud-corner,
+html.ee-compact #intel-hud .hud-top-bar,
+html.ee-compact #intel-hud .hud-bottom-bar,
+html.ee-compact #intel-hud .hud-left-edge,
+html.ee-compact #intel-hud .hud-right-edge {
+  display: none !important;
+}
+
+/* ── Header: compact logo only (KEYS moved to MORE) ─────────────────────── */
+html.ee-compact #title-bar {
+  top: calc(var(--ee-safe-top) + 2px);
+  left: 10px;
+}
+html.ee-compact #title-bar .title-logo.ee-wordmark {
+  width: clamp(96px, 28vw, 132px);
+}
+html.ee-compact #title-bar h1.ee-brand {
+  padding: 4px 7px;
+  border: 1px solid rgba(233, 238, 241, 0.1);
+  border-radius: 8px;
+  background: rgba(3, 8, 11, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+/* Key badge stays in DOM for status refresh but is not shown on the globe. */
+html.ee-compact #ee-key-status {
+  display: none !important;
+}
+html.ee-compact #ee-key-status .ee-key-glyph {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #3fb8ff;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+html.ee-compact #ee-key-status b {
+  font-size: 13px;
+  font-weight: 700;
+}
+html.ee-compact #ee-key-status small {
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+}
+html.ee-compact #ee-key-status[data-tone='none'] .ee-key-glyph {
+  stroke: #ffc24a;
+}
+html.ee-compact #ee-key-status[data-tone='some'] .ee-key-glyph,
+html.ee-compact #ee-key-status[data-tone='all'] .ee-key-glyph {
+  stroke: var(--ee-green);
+}
+
+/* ── Command bar: hidden until ASK EARTH EYE expands ────────────────────── */
+html.ee-compact #atlas-command-bar,
+html.ee-compact body.cockpit-mode #atlas-command-bar {
+  display: none;
+  top: calc(var(--ee-safe-top) + 42px);
+  left: 10px;
+  right: 10px;
+  width: auto;
+  min-width: 0;
+  transform: none;
+  padding: 3px 3px 3px 10px;
+  gap: 4px;
+  z-index: 165;
+}
+html.ee-compact.ee-ask-open #atlas-command-bar,
+html.ee-compact.ee-ask-open body.cockpit-mode #atlas-command-bar {
+  display: flex;
+}
+html.ee-compact .atlas-cmd-prompt {
+  display: none;
+}
+html.ee-compact #atlas-command-input {
+  font-size: 16px; /* no iOS zoom-on-focus */
+  padding: 2px;
+  min-height: 44px;
+}
+html.ee-compact #atlas-command-input::placeholder {
+  font-size: 12px;
+}
+html.ee-compact #atlas-command-run {
+  min-height: 44px;
+  min-width: 56px;
+}
+html.ee-compact #atlas-command-output {
+  max-height: 22vh;
+}
+
+/* Transient upstream status chips sit under the command bar. */
+html.ee-compact.atlas-eye #global-loading-status,
+html.ee-compact.atlas-eye body.cockpit-mode #global-loading-status {
+  top: calc(var(--ee-safe-top) + 48px);
+}
+html.ee-compact.ee-ask-open.atlas-eye #global-loading-status,
+html.ee-compact.ee-ask-open.atlas-eye body.cockpit-mode #global-loading-status {
+  top: calc(var(--ee-safe-top) + 100px);
+}
+html.ee-compact.atlas-eye #live-earth-chip {
+  top: calc(var(--ee-safe-top) + 78px);
+}
+html.ee-compact.atlas-eye #traffic-sync-chip {
+  top: calc(var(--ee-safe-top) + 108px);
+}
+html.ee-compact.atlas-eye #cctv-sync-chip {
+  top: calc(var(--ee-safe-top) + 138px);
+}
+
+/* ── Bottom tab bar ─────────────────────────────────────────────────────── */
+html.ee-compact #ee-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 160;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  height: var(--ee-bar-h);
+  padding: 4px 4px var(--ee-safe-bottom);
+  box-sizing: border-box;
+  background: #07090a;
+  border-top: 1px solid var(--ee-line);
+}
+html.ee-compact #ee-tabbar button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 48px;
+  min-width: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b9c4ca;
+}
+html.ee-compact #ee-tabbar button:focus-visible {
+  outline: 2px solid var(--ee-cyan);
+  outline-offset: -3px;
+}
+html.ee-compact #ee-tabbar svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+html.ee-compact #ee-tabbar [data-ee-more] svg {
+  fill: currentColor;
+  stroke: none;
+}
+html.ee-compact #ee-tabbar b {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+html.ee-compact #ee-tabbar button[aria-pressed='true'] {
+  color: #eef3f5;
+  background: rgba(124, 196, 216, 0.1);
+}
+html.ee-compact #ee-tabbar button[aria-pressed='true']::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 28%;
+  right: 28%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ee-cyan);
+}
+
+/* ── Bottom sheets: the upstream rail that owns the panel, siblings hidden ─ */
+html.ee-compact #left-panel-stack.ee-sheet-host,
+html.ee-compact #right-context-rail.ee-sheet-host,
+html.ee-compact #command-dock.ee-sheet-host {
+  display: block !important;
+  position: fixed !important;
+  /* Grow from the credit band; peek/half/full via --ee-sheet-max so a
+     half-open sheet does not full-bleed the globe (still-image freeze feel). */
+  top: auto !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: var(--ee-sheet-bottom) !important;
+  width: auto !important;
+  max-width: none !important;
+  height: var(--ee-sheet-max) !important;
+  max-height: var(--ee-sheet-max) !important;
+  margin: 0 !important;
+  padding: 8px 12px 24px !important;
+  box-sizing: border-box;
+  /* Root cause fix: upstream rails are pointer-events:none pass-through
+     layers, so touches in a sheet's gaps fell through to the globe. The
+     sheet is the single scroll container and owns every touch inside it. */
+  pointer-events: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scroll-padding-bottom: 24px;
+  transform: translateY(var(--ee-drag, 0px)) !important;
+  background: var(--ee-glass);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: 158 !important;
+  animation: ee-sheet-in 0.18s ease-out;
+}
+/* Root cause fix: nested scroll boxes inside a sheet (e.g. the layer list,
+   the scene shot list) had overscroll-behavior:contain but did not overflow,
+   so they captured the swipe and the sheet never scrolled. mobileShell.js
+   flattens them while the sheet is open; the sheet scrolls instead. */
+html.ee-compact .ee-sheet-host .ee-flat-scroll {
+  overflow-y: visible !important;
+  max-height: none !important;
+  overscroll-behavior: auto !important;
+}
+html.ee-compact .ee-sheet-host > :not(.ee-sheet-active) {
+  display: none !important;
+}
+html.ee-compact .ee-sheet-host > .ee-sheet-active {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html.ee-compact .ee-sheet-host .panel-glow {
+  display: none;
+}
+/* Upstream dock stubs become full-width sheet content. */
+html.ee-compact #command-dock.ee-sheet-host > .ee-sheet-active {
+  display: block !important;
+  height: auto !important;
+}
+html.ee-compact
+  #command-dock.ee-sheet-host
+  > #gev-voice-control.ee-sheet-active {
+  display: grid !important;
+}
+/* Root cause fix: the dock trays (VISUAL presets/map source, LOCATION) are
+   desktop pop-ups positioned absolutely ABOVE their button. Inside a sheet
+   that put them above the scroll origin, where no swipe could reach them.
+   In a sheet they are ordinary in-flow content. */
+html.ee-compact
+  #command-dock.ee-sheet-host
+  .ee-sheet-active
+  .dock-popover-content {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.ee-compact
+  #command-dock.ee-sheet-host
+  .ee-sheet-active
+  .dock-popover-content::after,
+html.ee-compact #command-dock.ee-sheet-host .ee-sheet-active .dock-pin-btn {
+  /* The pin keeps a desktop tray open; a sheet stays open anyway. */
+  display: none !important;
+}
+html.ee-compact #command-dock.ee-sheet-host .ee-sheet-active .panel-inner,
+html.ee-compact #command-dock.ee-sheet-host .ee-sheet-active .location-inner {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Touch targets inside sheets. */
+html.ee-compact .ee-sheet-host button,
+html.ee-compact .ee-sheet-host [role='button'],
+html.ee-compact .ee-sheet-host .data-toggle-btn,
+html.ee-compact .ee-sheet-host select {
+  min-height: 44px !important;
+  min-width: 44px !important;
+}
+
+html.ee-compact #ee-sheet-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: calc(var(--ee-sheet-bottom) + var(--ee-sheet-max));
+  z-index: 159;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  height: var(--ee-head-h);
+  padding: 6px 8px 0 16px;
+  box-sizing: border-box;
+  background: var(--ee-glass);
+  border-top: 1px solid var(--ee-line);
+  border-bottom: 1px solid var(--ee-line);
+  border-radius: 14px 14px 0 0;
+  transform: translateY(var(--ee-drag, 0px));
+  /* Only the handle drags (spec §5); the header itself is inert. */
+  touch-action: manipulation;
+  pointer-events: auto;
+  animation: ee-sheet-in 0.18s ease-out;
+}
+html.ee-compact #ee-sheet-bar[hidden] {
+  display: none;
+}
+html.ee-compact #ee-sheet-bar h2 {
+  margin: 0;
+  font: 600 13px/1.2 var(--ee-font-ui);
+  letter-spacing: 0.14em;
+  color: #eef3f5;
+  pointer-events: none;
+}
+html.ee-compact #ee-sheet-bar .ee-sheet-handle {
+  touch-action: none;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 120px;
+  height: 44px;
+  transform: translateX(-50%);
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+html.ee-compact #ee-sheet-bar .ee-sheet-handle span {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 7px auto 0;
+  border-radius: 2px;
+  background: rgba(214, 222, 226, 0.5);
+}
+html.ee-compact #ee-sheet-bar .ee-sheet-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--ee-line);
+  background: #14191c;
+  color: #eef3f5;
+  font-size: 16px;
+}
+
+@keyframes ee-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.ee-compact #ee-sheet-bar,
+  html.ee-compact .ee-sheet-host,
+  html.ee-compact #atlas-panel,
+  html.ee-compact #ee-cam-viewer,
+  html.ee-compact #atlas-console[data-dock-open='true'] #atlas-dock {
+    animation: none !important;
+  }
+}
+
+/* ── Earth Eye panels + MORE menu as bottom sheets too ──────────────────── */
+html.ee-compact #atlas-panel,
+html.ee-compact #ee-cam-viewer {
+  top: var(--ee-sheet-top);
+  left: 0;
+  right: 0;
+  bottom: var(--ee-sheet-bottom);
+  width: auto;
+  max-height: none;
+  border-radius: 14px 14px 0 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  animation: ee-sheet-in 0.18s ease-out;
+}
+html.ee-compact #ee-cam-viewer {
+  position: fixed;
+  transform: none;
+  z-index: 175;
+}
+html.ee-compact #atlas-panel .atlas-panel-body,
+html.ee-compact #ee-cam-viewer .ee-cam-view-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-bottom: 28px;
+}
+html.ee-compact #atlas-panel .atlas-panel-close,
+html.ee-compact .ee-close {
+  width: 44px;
+  height: 44px;
+}
+html.ee-compact .ee-sheet-head {
+  touch-action: manipulation;
+  /* Room for the drag handle above the title. */
+  padding-top: 24px;
+}
+html.ee-compact .ee-sheet-head .ee-handle {
+  touch-action: none;
+  height: 26px;
+  display: block;
+}
+html.ee-compact #atlas-panel .atlas-feed-toggle,
+html.ee-compact #atlas-panel .atlas-primary,
+html.ee-compact #atlas-panel .atlas-examples button {
+  min-height: 44px;
+}
+html.ee-compact #atlas-console:not([data-dock-open='true']) #atlas-dock {
+  display: none;
+}
+html.ee-compact #atlas-console[data-dock-open='true'] #atlas-dock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  position: fixed;
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: var(--ee-sheet-bottom);
+  max-height: var(--ee-sheet-max);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 10px;
+  border-radius: 14px 14px 0 0;
+  border-bottom: 0;
+  background: var(--ee-glass);
+  z-index: 158;
+  animation: ee-sheet-in 0.18s ease-out;
+}
+html.ee-compact #atlas-dock .ee-compact-only {
+  display: flex;
+}
+html.ee-compact #atlas-dock button {
+  min-height: 56px;
+  min-width: 44px;
+}
+html.ee-compact #atlas-dock button b {
+  font-size: 9.5px;
+}
+html.ee-compact #atlas-dock .ee-dock-svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+html.ee-compact #atlas-dock button[aria-pressed='true'] {
+  border-color: var(--ee-cyan);
+  background: rgba(124, 196, 216, 0.12);
+}
+
+/* ── Safety strip: compact, above the credits, gone after OK ────────────── */
+html.ee-compact #atlas-disclaimer {
+  left: 8px;
+  right: 8px;
+  bottom: calc(var(--ee-bar-h) + var(--ee-overlay-h, 0px) + 56px);
+  width: auto;
+  transform: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 10px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+html.ee-compact #atlas-disclaimer .ee-disclaimer-long {
+  display: none;
+}
+/* A full-height sheet leaves no room for the strip; every sheet carries its
+   own limits line and the strip returns when the sheet closes. */
+html.ee-compact[data-ee-overlay] #atlas-disclaimer {
+  display: none;
+}
+html.ee-compact #atlas-disclaimer .ee-disclaimer-short {
+  display: block;
+  flex: 1 1 auto;
+}
+html.ee-compact #atlas-disclaimer button {
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+}
+
+/* ── Required credits stay visible above whatever is open ───────────────── */
+html.ee-compact body:not(.cockpit-mode) #cesium-credits,
+html.ee-compact
+  body:not(.ui-clean-view):not(.recording-mode):not(.cockpit-mode)
+  #cesium-credits {
+  left: 10px !important;
+  bottom: calc(var(--ee-bar-h) + var(--ee-overlay-h, 0px) + 16px) !important;
+  max-width: calc(100vw - 20px) !important;
+  z-index: 157;
+}
+/* With a sheet open the credits sit in their own band above the tab bar. */
+html.ee-compact[data-ee-overlay] body:not(.cockpit-mode) #cesium-credits,
+html.ee-compact[data-ee-overlay]
+  body:not(.ui-clean-view):not(.recording-mode):not(.cockpit-mode)
+  #cesium-credits {
+  bottom: calc(var(--ee-bar-h) + 9px) !important;
+  width: max-content;
+  white-space: nowrap;
+}
+/* 44px hit areas on the attribution links without moving the text. */
+html.ee-compact body:not(.cockpit-mode) #cesium-credits a,
+html.ee-compact
+  body:not(.cockpit-mode)
+  #cesium-credits
+  .cesium-credit-expand-link {
+  display: inline-block;
+  padding: 16px 3px;
+  margin: -16px 0;
+}
+
+/* ── Optional compact HUD (MORE → HUD): two short lines above the credits ─ */
+html.ee-compact[data-ee-overlay] #intel-hud {
+  visibility: hidden;
+}
+html.ee-compact.ee-hud-on {
+  --ee-hud-bottom: calc(var(--ee-bar-h) + var(--ee-overlay-h, 0px) + 54px);
+}
+html.ee-compact.ee-hud-on:has(#atlas-disclaimer) {
+  --ee-hud-bottom: calc(var(--ee-bar-h) + var(--ee-overlay-h, 0px) + 116px);
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left {
+  display: block !important;
+  top: auto;
+  bottom: calc(var(--ee-hud-bottom) + 38px);
+  left: 12px;
+  right: 12px;
+  width: auto;
+  max-width: none;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-bracket,
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-classification,
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-system,
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-summary-label {
+  display: none;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-content {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-mode {
+  flex: 0 0 auto;
+  font-size: 11px;
+  margin: 0;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-summary-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-top-left .hud-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 9.5px;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-bottom-left,
+html.ee-compact.ee-hud-on #intel-hud .hud-bottom-right {
+  display: block !important;
+  top: auto;
+  bottom: var(--ee-hud-bottom);
+  width: calc(50vw - 18px);
+  max-width: none;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-bottom-left {
+  left: 12px;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-bottom-right {
+  right: 12px;
+  text-align: right;
+}
+html.ee-compact.ee-hud-on #intel-hud .hud-bottom-left .hud-bracket,
+html.ee-compact.ee-hud-on #intel-hud .hud-bottom-right .hud-bracket,
+html.ee-compact.ee-hud-on #intel-hud #hud-mgrs,
+html.ee-compact.ee-hud-on #intel-hud #hud-gsd,
+html.ee-compact.ee-hud-on #intel-hud #hud-ais-vessel {
+  display: none;
+}
+html.ee-compact.ee-hud-on #intel-hud #hud-latlon,
+html.ee-compact.ee-hud-on #intel-hud #hud-alt {
+  font-size: 9.5px;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* ── Cockpit (upstream full-screen mode): its own instruments and exit own
+   the screen; the tab bar and key badge step aside, credits use upstream's
+   cockpit placement, the command bar sits under the cockpit title line. */
+html.ee-compact body.cockpit-mode #ee-tabbar,
+html.ee-compact body.cockpit-mode #ee-key-status,
+html.ee-compact body.cockpit-mode #ee-sheet-bar,
+html.ee-compact body.cockpit-mode .ee-sheet-host {
+  display: none !important;
+}
+html.ee-compact body.cockpit-mode #atlas-command-bar {
+  top: calc(var(--ee-safe-top) + 84px);
+}
+/* Keyboard hint means nothing on a phone; the credit line takes its place
+   along the bottom edge, clear of the EXIT COCKPIT switcher. */
+html.ee-compact body.cockpit-mode .cockpit-help {
+  display: none !important;
+}
+html.ee-compact body.cockpit-mode #cesium-credits {
+  left: 10px !important;
+  bottom: calc(var(--ee-safe-bottom) + 4px) !important;
+  max-width: calc(100vw - 20px) !important;
+}
+
+/* ── Landscape phones: one top row, shorter bar and sheets ──────────────── */
+@media (max-height: 500px) {
+  html.ee-compact {
+    --ee-safe-top: max(8px, env(safe-area-inset-top));
+    --ee-bar-h: calc(50px + var(--ee-safe-bottom));
+    --ee-top-h: calc(var(--ee-safe-top) + 48px);
+  }
+  html.ee-compact #title-bar {
+    top: calc(var(--ee-safe-top) + 3px);
+    left: max(12px, env(safe-area-inset-left));
+  }
+  html.ee-compact #title-bar .title-logo.ee-wordmark {
+    width: 200px;
+  }
+  html.ee-compact #atlas-command-bar,
+  html.ee-compact body.cockpit-mode #atlas-command-bar {
+    top: var(--ee-safe-top);
+    left: calc(max(12px, env(safe-area-inset-left)) + 232px);
+    right: calc(max(12px, env(safe-area-inset-right)) + 110px);
+  }
+  html.ee-compact #ee-key-status {
+    right: max(12px, env(safe-area-inset-right));
+    width: 100px;
+    justify-content: center;
+  }
+  /* Sheets are side sheets on the right here: credits and the safety strip
+     stay bottom-left beside them instead of moving above them. */
+  html.ee-compact body:not(.cockpit-mode) #cesium-credits,
+  html.ee-compact
+    body:not(.ui-clean-view):not(.recording-mode):not(.cockpit-mode)
+    #cesium-credits {
+    bottom: calc(var(--ee-bar-h) + 16px) !important;
+  }
+  html.ee-compact[data-ee-overlay] body:not(.cockpit-mode) #cesium-credits,
+  html.ee-compact[data-ee-overlay]
+    body:not(.ui-clean-view):not(.recording-mode):not(.cockpit-mode)
+    #cesium-credits {
+    max-width: calc(100vw - min(520px, 100vw) - 24px) !important;
+    white-space: normal;
+  }
+  html.ee-compact #atlas-disclaimer {
+    bottom: calc(var(--ee-bar-h) + 56px);
+    right: auto;
+    width: min(460px, calc(100vw - 16px));
+  }
+  html.ee-compact[data-ee-overlay] #atlas-disclaimer {
+    right: calc(min(520px, 100vw) + 8px);
+  }
+  html.ee-compact.ee-hud-on {
+    --ee-hud-bottom: calc(var(--ee-bar-h) + 54px);
+  }
+  html.ee-compact.ee-hud-on #intel-hud .hud-top-left {
+    right: auto;
+    width: min(420px, calc(100vw - 560px));
+  }
+  html.ee-compact.ee-hud-on #intel-hud .hud-bottom-left,
+  html.ee-compact.ee-hud-on #intel-hud .hud-bottom-right {
+    width: calc(25vw - 18px);
+  }
+  html.ee-compact #ee-tabbar {
+    padding-left: max(4px, env(safe-area-inset-left));
+    padding-right: max(4px, env(safe-area-inset-right));
+  }
+  html.ee-compact #ee-tabbar button {
+    flex-direction: row;
+    gap: 6px;
+    min-height: 44px;
+  }
+  html.ee-compact #ee-tabbar svg {
+    width: 18px;
+    height: 18px;
+  }
+  html.ee-compact {
+    --ee-sheet-top: calc(var(--ee-safe-top) + 52px);
+    --ee-sheet-bottom: var(--ee-bar-h);
+    --ee-head-h: 46px;
+  }
+  html.ee-compact #left-panel-stack.ee-sheet-host,
+  html.ee-compact #right-context-rail.ee-sheet-host,
+  html.ee-compact #command-dock.ee-sheet-host,
+  html.ee-compact #ee-sheet-bar,
+  html.ee-compact #atlas-panel,
+  html.ee-compact #ee-cam-viewer,
+  html.ee-compact #atlas-console[data-dock-open='true'] #atlas-dock {
+    left: auto !important;
+    right: max(0px, env(safe-area-inset-right)) !important;
+    width: min(520px, 100vw) !important;
+  }
+  html.ee-compact[data-ee-overlay] body:not(.cockpit-mode) #cesium-credits,
+  html.ee-compact[data-ee-overlay]
+    body:not(.ui-clean-view):not(.recording-mode):not(.cockpit-mode)
+    #cesium-credits {
+    bottom: calc(var(--ee-bar-h) + 16px) !important;
+    white-space: normal;
+    max-height: none;
+  }
+  html.ee-compact #atlas-console[data-dock-open='true'] #atlas-dock {
+    grid-template-columns: repeat(7, 1fr);
+  }
+  html.ee-compact.atlas-eye #global-loading-status,
+  html.ee-compact.atlas-eye body.cockpit-mode #global-loading-status {
+    top: calc(var(--ee-safe-top) + 54px);
+  }
+  html.ee-compact.atlas-eye #live-earth-chip {
+    top: calc(var(--ee-safe-top) + 84px);
+  }
+  html.ee-compact.atlas-eye #traffic-sync-chip {
+    top: calc(var(--ee-safe-top) + 114px);
+  }
+  html.ee-compact.atlas-eye #cctv-sync-chip {
+    top: calc(var(--ee-safe-top) + 144px);
+  }
+}
+
+/* One header per sheet (spec §5): the sheet bar already names the panel, so
+   the upstream panel's own title row (and its collapse control, which the
+   sheet close button replaces) is hidden inside a sheet. */
+html.ee-compact .ee-sheet-active > [class$='-inner'] > .panel-header,
+html.ee-compact .ee-sheet-active > .pp-header-row,
+html.ee-compact .ee-sheet-active > .location-toolbar {
+  display: none !important;
+}
+html.ee-compact #atlas-dock .ee-desktop-only {
+  display: none;
+}
+
+/* Enlarged text: layer rows wrap instead of running off the sheet. */
+html.ee-compact .ee-sheet-host .ee-row-badge {
+  white-space: normal;
+  max-width: 100%;
+}
+html.ee-compact .ee-sheet-host .data-toggle-top {
+  flex-wrap: wrap;
+}
+html.ee-compact .ee-sheet-host .data-toggle-top > * {
+  min-width: 0;
+}
+
+/* ── ASK EARTH EYE expand control ───────────────────────────────────────── */
+html.ee-compact #ee-ask-toggle {
+  position: fixed;
+  top: calc(var(--ee-safe-top) + 4px);
+  right: 10px;
+  z-index: 160;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 18px;
+  border: 1px solid var(--ee-line);
+  background: rgba(3, 11, 15, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--ee-green);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.15;
+}
+html.ee-compact #ee-ask-toggle span {
+  display: block;
+  color: #cfe8df;
+  letter-spacing: 0.08em;
+  font-size: 8.5px;
+}
+html.ee-compact #ee-ask-toggle[aria-expanded='true'] {
+  border-color: var(--ee-green);
+  color: #e8fff4;
+}
+
+/* ── Floating NORTH / TILT (out of MORE) ────────────────────────────────── */
+html.ee-compact #ee-compass {
+  position: fixed;
+  right: 10px;
+  bottom: calc(var(--ee-bar-h) + var(--ee-credit-h) + 8px);
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.ee-compact #ee-compass button {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--ee-line);
+  background: rgba(3, 11, 15, 0.78);
+  color: #e8eef2;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+html.ee-compact[data-ee-overlay] #ee-compass {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── Sheet heights PEEK / HALF / FULL ───────────────────────────────────── */
+html.ee-compact[data-ee-sheet-height='peek'] {
+  --ee-sheet-max: var(--ee-sheet-peek);
+}
+html.ee-compact[data-ee-sheet-height='half'] {
+  --ee-sheet-max: var(--ee-sheet-half);
+}
+html.ee-compact[data-ee-sheet-height='full'] {
+  --ee-sheet-max: var(--ee-sheet-full);
+}
+html.ee-compact #ee-sheet-bar[data-height]::after {
+  content: attr(data-height);
+  position: absolute;
+  right: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ── MORE grouped sections ──────────────────────────────────────────────── */
+html.ee-compact #atlas-dock[data-open],
+html.ee-compact #atlas-console[data-dock-open='true'] #atlas-dock {
+  display: flex !important;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px calc(12px + var(--ee-safe-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+html.ee-compact #atlas-dock > button.ee-desktop-dock {
+  display: none !important;
+}
+html.ee-compact #ee-desktop-more,
+html.ee-compact #ee-desktop-more-toggle {
+  display: none !important;
+}
+
+html.ee-compact .ee-more-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+html.ee-compact .ee-more-group h3 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: rgba(200, 220, 230, 0.65);
+}
+html.ee-compact .ee-more-group {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+html.ee-compact .ee-more-group h3,
+html.ee-compact .ee-more-hint {
+  grid-column: 1 / -1;
+}
+html.ee-compact .ee-more-hint {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.65;
+}
+html.ee-compact .ee-more-group button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 64px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--ee-line);
+  background: rgba(12, 16, 18, 0.92);
+  color: #dce8ee;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+html.ee-compact .ee-more-group button span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Analyst compact AI-off strip */
+html.ee-compact .ee-an-ai-off {
+  margin: 0 0 8px !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  max-height: 2.8em;
+  overflow: hidden;
+}
+
+/* TRACK workspace */
+html.ee-compact .ee-track {
+  padding: 8px 12px 16px;
+}
+html.ee-compact .ee-track-contract {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  border-left: 3px solid var(--ee-cyan);
+  background: rgba(20, 28, 32, 0.9);
+}
+html.ee-compact .ee-track-band {
+  margin-bottom: 12px;
+}
+html.ee-compact .ee-track-band header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+html.ee-compact .ee-track-band h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
+html.ee-compact .ee-track-row {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 8px;
+  border: 1px solid var(--ee-line);
+  border-radius: 10px;
+  background: rgba(10, 14, 16, 0.85);
+}
+html.ee-compact .ee-track-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+html.ee-compact .ee-track-actions {
+  margin-top: 6px;
+}
+html.ee-compact #atlas-dock > button.atlas-dock-logout,
+html.ee-compact .ee-more-group a.atlas-dock-security,
+html.ee-compact .ee-more-group button.atlas-dock-logout {
+  display: flex !important;
+}
+
+/* UX-2 object selection card */
+html.ee-compact #ee-selection-card {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  bottom: calc(var(--ee-bar-h) + var(--ee-credit-h) + 8px);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ee-line);
+  background: rgba(6, 10, 12, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #e8eef2;
+}
+html.ee-compact #ee-selection-card[hidden] {
+  display: none !important;
+}
+html.ee-compact #ee-compass {
+  bottom: calc(var(--ee-bar-h) + var(--ee-credit-h) + 96px);
+}
+html.ee-compact[data-ee-overlay] #ee-selection-card {
+  opacity: 0.92;
+}
+html.ee-compact .ee-sel-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+html.ee-compact .ee-sel-kind {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  opacity: 0.7;
+}
+html.ee-compact .ee-sel-label {
+  font-size: 14px;
+}
+html.ee-compact .ee-sel-hint {
+  margin: 0;
+  font-size: 11px;
+}
+html.ee-compact .ee-sel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.ee-compact .ee-sel-actions button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ee-line);
+  background: rgba(18, 24, 28, 0.95);
+  color: #dff5ea;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+html.ee-compact .ee-sel-actions button:disabled {
+  opacity: 0.4;
+}
+html.ee-compact .ee-sel-actions .ee-sel-clear {
+  margin-left: auto;
+  min-width: 40px;
+}
+html.ee-compact .ee-track-row.ee-track-selected {
+  border-color: var(--ee-cyan);
+  box-shadow: 0 0 0 1px rgba(124, 196, 216, 0.35);
+}
+
+/* Analyst AI-off strip dismiss */
+html.ee-compact .ee-an-ai-off {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+html.ee-compact .ee-an-ai-off[hidden] {
+  display: none !important;
+}
+html.ee-compact .ee-ai-dismiss {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+/* Camera primary list before filters */
+html.ee-compact .ee-cam-filters {
+  margin: 8px 12px 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--ee-line);
+  border-radius: 12px;
+  background: rgba(10, 14, 16, 0.85);
+}
+html.ee-compact .ee-cam-filters > summary {
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+html.ee-compact .ee-cam-filters[open] > summary {
+  margin-bottom: 8px;
+}
+html.ee-compact .ee-cam-primary {
+  padding-top: 4px;
+}
+
+/* Hard restore: when overlay attribute is gone, canvas MUST accept gestures */
+html.ee-compact:not([data-ee-overlay]) #cesiumContainer canvas {
+  pointer-events: auto !important;
+  touch-action: none !important;
+}
+html.ee-compact:not([data-ee-overlay]) #cesiumContainer {
+  touch-action: none !important;
+  pointer-events: auto;
+}
+
+/* Required Google attribution when Photorealistic 3D is active */
+.ee-google-attribution {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  bottom: calc(var(--ee-bar-h, 56px) + var(--ee-credit-h, 46px) + 4px);
+  z-index: 158;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #e8eef2;
+  font-size: 11px;
+  line-height: 1.3;
+  pointer-events: auto;
+}
+.ee-google-attribution a {
+  color: #9fd4ff;
+  text-decoration: underline;
+}
+.ee-google-attribution[hidden] {
+  display: none !important;
+}
+html:not(.ee-compact) .ee-google-attribution {
+  bottom: 28px;
+  left: 12px;
+}
