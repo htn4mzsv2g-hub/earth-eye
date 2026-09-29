@@ -220,19 +220,20 @@ Older handoff text named audit-10 SHAs `dc51575`, `bfe24f9`, `b15ea56`, `258ea66
 ---
 
 ## Full delta archive (non-deployable)
-- **Local path:** `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`
-- **Expanded dir:** `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e-2026-09-29/`
+
+- Local tarball: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e.tar.gz`
+- Expanded dir: `/workspace/earth-eye-spec/archives/c6ef09d-vs-b846a3e-2026-09-29/`
 - **Full SHA-256:** `f48f24298fe503ddcb2f818c670e2bff17ac341c7720522759a28ccf13571cbf`
-- **GitHub branch (upload in flight):** `wip/archive-c6ef09d-vs-b846a3e-2026-09-29`
-- Compares `c6ef09d852db1675f501d54d8c27d1897334804d` vs known-good `b846a3e0557bc879142aef69c2babd812757a9fc`
-- DO NOT MERGE / DO NOT DEPLOY
+- GitHub branch: `wip/archive-c6ef09d-vs-b846a3e-2026-09-29` (upload may still be landing; treat as ARCHIVE ONLY)
+- Compares local tip `c6ef09d852db1675f501d54d8c27d1897334804d` vs known-good `b846a3e0557bc879142aef69c2babd812757a9fc` (divergent histories)
+- **DO NOT MERGE / DO NOT DEPLOY**
 
 ### Exact omissions
+
 - secrets: `.env*`, `.reviewer-cred*`
 - `node_modules/`, `dist/`, `200/`, `.gev-cache/`, `.gev-logs/`, `.probe/`, full `.git`
-- **Omitted media (~70MB, ~19 binaries):** `docs/media` GIF/PNG marketing assets and `handoff-screenshots` / ignored `screenshots/`
-- **Runtime requirement:** omitted media is **NOT required at runtime** to build or run the app (marketing/docs screenshots only; previously noted remote checkpoints also omit `docs/media`). Production known-good Fly v66 does not depend on these binaries.
-- RESIL is separate: `cursor/sat-celestrak-resilience-abf1` @ `596af727b718186cc4a936ae1d6847fbab0db129` PR #4 — do not deploy
+- omitted media (~70MB, ~19 binaries): `docs/media` GIF/PNG marketing assets; `handoff-screenshots`; ignored `screenshots/` (~192M)
+- **Runtime:** omitted media is **NOT required at runtime** to build or run the app (docs/marketing only). Fly v66 / known-good does not depend on these binaries. `docs/media/README.md` text may be included without the binaries.
 
 ---
 
