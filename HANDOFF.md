@@ -26,6 +26,10 @@
 
 **Fly ↔ source:** Production v58 was deployed from the local working tree at/near `258ea66` / `b15ea56` (audit-10 tip). Commit `5ae5e08` preserves extra unfinished local work so the remote branch has the full buildable application, clearly marked WIP.
 
+**Verified 2026-09-29 (restore branch):** `dc51575`, `bfe24f9`, `b15ea56`, `258ea66`, `5ae5e08`, and `b48f4b0` are **not git objects** in this clone or on GitHub (the API returns no commit). History here is squashed: `2afd378` (gods-eye-view handoff) → `d78c49c` (v58 checkpoint + WIP). Later freeze-patch names `5e56f29`, `ebafb9a`, and `e91d7a6` (claimed v63 tip) are also absent. Do not check them out. There is no `holdContinuousRender('camera-interact')` in this tree.
+
+**Rollback to evaluate (not v62):** Fly **v57** `registry.fly.io/eartheye:deployment-01M3PFRJK7KJW6955G5AKXH6XN` is the image the audit-10 milestone names as the tip *before* v58 / `dc51575`. Owner: the globe worked before that non-3D audit. v57 is the candidate. It is not a recorded physical drag+pinch pass. If v57 is still frozen, the older pre-graphics-recovery image is v54 `deployment-01M3PEW4KQQ6ZC1V00HM0C2C8J`. Do not use v62.
+
 **IMPORTANT:** Fly often deploys from the Grok Bot computer tree without requiring GitHub tip. Prefer this work branch over `main` for current app source. Keep unfinished work off stable `main`.
 
 ## Audit-10 status
