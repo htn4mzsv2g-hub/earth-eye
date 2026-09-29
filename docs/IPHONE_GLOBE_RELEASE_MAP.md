@@ -20,7 +20,7 @@ Those computed styles are the loader’s **initial** rule in `src/ui/styles/cont
 
 `startApplicationChrome` (`src/app/startupChrome.js`) called `releaseLoadingScreen` only after `styleManager.initialRestorePromise` and a 1s delay. That promise is `ShareRestoration.initialRestorePromise`. With a share hash (the app writes one after the first camera move; a reload keeps it), settlement waits on `ShareLinkManager.applyState`, which waits on `camera.flyTo` `complete` or `cancel`. If neither callback runs, the promise stays pending and the loader stays at display `flex` / opacity `1`.
 
-The fix releases the live `#loading-screen` on a 1200ms cap even when that promise never settles. Welcome UI still waits for restoration. Share restore itself is capped at 8s so the promise cannot wedge the session. A short startup pass re-releases the loader if a later writer puts it back. Opening DIAG also releases a loader that is still up, and the panel prints `LOADER AT OPEN` from before that release.
+The fix releases the live `#loading-screen` on a 1200ms cap even when that promise never settles. Welcome UI still waits for restoration. Share restore itself is capped at 8s so the promise cannot wedge the session. Release stamps `data-ee-loader-released` and `data-ee-loader-released-at` and records `__eeLoaderRelease` (time, reason, connected). If that stamp is present and the node still intercepts — styles cleared, class removed, or the hide ignored — the node is replaced with an empty inert stand-in. `pageshow`, `visibilitychange`, and `focus` re-run that check. Opening DIAG also releases a loader that is still up, and the panel prints `LOADER AT OPEN` from before that release, including the stamp time.
 
 ## Why `inputs=false`
 
@@ -31,7 +31,7 @@ DIAG does not write `screenSpaceCameraController.enableInputs`. The writers that
 - `src/ui/imageryBoxTool.js` — imagery box drag; pointer-up restores the previous value.
 - `src/data/localGeojsonCore.js` — entity flyTo. `complete` / `cancel` set `true`. A flight that never ticks used to leave inputs false. A 2.5s timer now releases them.
 
-`installCameraInputTrace` wraps the Cesium setter and keeps the last disable stack. DIAG prints `INPUT DISABLE`. Closing DIAG records `AFTER DIAG CLOSE` and, unless cockpit is active, sets inputs back to `true`. The same restore runs when the loader is released and again at 3s and 8s. It does not run on a timer after that, so a later drag tool can still freeze the camera while it is dragging.
+`installCameraInputTrace` wraps the Cesium setter and keeps the last disable stack plus the module name when it is one of those four files. DIAG prints `INPUT DISABLE module=…`. Closing DIAG forces `enableInputs`, `enableRotate`, `enableZoom`, and `enableTilt` back to `true` unless `body` has `cockpit-mode` or a gizmo / imagery-box drag still holds `__eeCameraInputHold`. The panel keeps `AFTER DIAG CLOSE` with the four flags before and after. The same input restore runs when the loader is released and again at 3s and 8s. It does not run on a timer after that, so a later drag tool can still freeze the camera while it is dragging.
 
 ## Gesture classes
 

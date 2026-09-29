@@ -66,6 +66,10 @@ function readLoaderLine(doc) {
     `vis=${computed?.visibility || el.style?.visibility || '—'}`,
     `pe=${computed?.pointerEvents || el.style?.pointerEvents || '—'}`,
     `op=${computed?.opacity || el.style?.opacity || '—'}`,
+    `released=${el.getAttribute?.('data-ee-loader-released') || 'no'}`,
+    `at=${el.getAttribute?.('data-ee-loader-released-at') || release?.at || '—'}`,
+    `connected=${el.isConnected === false ? 'no' : 'yes'}`,
+    `detached=${el.getAttribute?.('data-ee-loader-detached') === '1' ? 'yes' : 'no'}`,
     `reason=${release?.reason || 'not-yet'}`,
   ].join(' ');
 }

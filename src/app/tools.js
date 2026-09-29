@@ -24,7 +24,7 @@ import {
   degradedRunAction,
 } from './graphicsRecovery.js';
 import { attachDiagnosticViewer } from './globeDiagnosticsPanel.js';
-import { ensureLoaderReleased } from './loadingScreenRelease.js';
+import { ensureLoaderReleased, installLoaderReleaseGuards } from './loadingScreenRelease.js';
 import { restoreCameraInputsUnlessCockpit } from './cameraInputTrace.js';
 
 /** Attach scene tools, rendering listeners and the application debug handle. */
@@ -137,9 +137,11 @@ export function createApplicationTools({
     releaseStuckStartup('visible');
   };
   document.addEventListener('visibilitychange', releaseIfVisible);
+  const removeLoaderGuards = installLoaderReleaseGuards(document);
   defer(() => {
     for (const timer of startupReleaseTimers) clearTimeout(timer);
     document.removeEventListener('visibilitychange', releaseIfVisible);
+    removeLoaderGuards();
   });
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;

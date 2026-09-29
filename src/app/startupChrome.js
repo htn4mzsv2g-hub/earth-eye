@@ -42,16 +42,7 @@ export function startApplicationChrome({
     if (released || disposed) return;
     released = true;
     const live = liveLoadingScreen(loadingScreen);
-    try {
-      globalThis.__eeLoaderRelease = {
-        at: Date.now(),
-        reason,
-        connected: live?.isConnected !== false,
-      };
-    } catch {
-      /* non-DOM hosts */
-    }
-    releaseLoadingScreen(live);
+    releaseLoadingScreen(live, { reason });
     restoreCameraInputsUnlessCockpit(
       styleManager?.viewer,
       globalThis.document,

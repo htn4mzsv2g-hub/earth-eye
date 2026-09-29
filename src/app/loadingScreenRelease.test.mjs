@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   ensureLoaderReleased,
+  installLoaderReleaseGuards,
   loaderInterceptsPointer,
   releaseLoadingScreen,
 } from './loadingScreenRelease.js';
@@ -27,6 +28,22 @@ function element(tag, className = '') {
       contains(name) {
         return this._set.has(name);
       },
+      remove(...names) {
+        for (const name of names) this._set.delete(name);
+        el.className = [...this._set].join(' ');
+      },
+    },
+    removeAttribute(key) {
+      attrs.delete(key);
+      if (key === 'id') el.id = '';
+    },
+    replaceChild(next, prev) {
+      const index = this.children.indexOf(prev);
+      if (index < 0) return null;
+      next.parentElement = this;
+      prev.parentElement = null;
+      this.children[index] = next;
+      return prev;
     },
     setAttribute(key, value) {
       attrs.set(key, String(value));
@@ -112,6 +129,98 @@ test('release removes the loader from hit testing even when a child forces point
   assert.equal(screen.style.pointerEvents, 'none');
   assert.equal(content.style.pointerEvents, 'none');
   assert.equal(loaderInterceptsPointer(screen), false);
+});
+
+test('a stamped loader whose styles are cleared is replaced with an empty inert node', () => {
+  const { screen } = loaderFixture();
+  const parent = element('div');
+  parent.appendChild(screen);
+  let current = screen;
+  const computed = {
+    display: 'flex',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    opacity: '1',
+  };
+  const doc = {
+    getElementById: (id) => (id === 'loading-screen' && current?.id === 'loading-screen' ? current : null),
+    createElement: () => element('div'),
+    defaultView: { getComputedStyle: () => computed },
+  };
+  const originalReplace = parent.replaceChild.bind(parent);
+  parent.replaceChild = (next, prev) => {
+    const removed = originalReplace(next, prev);
+    if (prev === current) current = next;
+    return removed;
+  };
+  releaseLoadingScreen(screen, { reason: 'cap', now: () => 1700000000000 });
+  assert.equal(screen.getAttribute('data-ee-loader-released'), '1');
+  assert.equal(screen.getAttribute('data-ee-loader-released-at'), '1700000000000');
+  assert.equal(globalThis.__eeLoaderRelease.reason, 'cap');
+  screen.classList.remove('hidden');
+  delete screen.style.display;
+  delete screen.style.visibility;
+  delete screen.style.pointerEvents;
+  assert.equal(loaderInterceptsPointer(screen, computed), true);
+  assert.equal(ensureLoaderReleased(doc), true);
+  assert.notEqual(current, screen);
+  assert.equal(current.id, 'loading-screen');
+  assert.equal(current.getAttribute('data-ee-loader-detached'), '1');
+  assert.equal(current.getAttribute('data-ee-loader-released-at'), '1700000000000');
+  assert.equal(current.inert, true);
+  assert.equal(current.querySelector('.loader-content'), null);
+  assert.equal(loaderInterceptsPointer(current, computed), false);
+  assert.equal(screen.id, '');
+});
+
+test('pageshow, visibility, and focus re-assert a cleared loader release', () => {
+  const { screen } = loaderFixture();
+  const parent = element('div');
+  parent.appendChild(screen);
+  let current = screen;
+  const listeners = new Map();
+  const doc = {
+    __eeLoaderGuards: false,
+    getElementById: (id) => (id === 'loading-screen' && current?.id === 'loading-screen' ? current : null),
+    createElement: () => element('div'),
+    defaultView: { getComputedStyle: () => ({ display: 'flex', visibility: 'visible', pointerEvents: 'auto', opacity: '1' }) },
+    addEventListener(type, fn) {
+      listeners.set(type, fn);
+    },
+    removeEventListener(type) {
+      listeners.delete(type);
+    },
+  };
+  const winListeners = new Map();
+  const win = {
+    addEventListener(type, fn) {
+      winListeners.set(type, fn);
+    },
+    removeEventListener(type) {
+      winListeners.delete(type);
+    },
+  };
+  const originalReplace = parent.replaceChild.bind(parent);
+  parent.replaceChild = (next, prev) => {
+    const removed = originalReplace(next, prev);
+    if (prev === current) current = next;
+    return removed;
+  };
+  releaseLoadingScreen(screen, { now: () => 42 });
+  delete screen.style.display;
+  delete screen.style.visibility;
+  delete screen.style.pointerEvents;
+  screen.classList.remove('hidden');
+  const stop = installLoaderReleaseGuards(doc, win);
+  assert.equal(typeof listeners.get('visibilitychange'), 'function');
+  assert.equal(typeof winListeners.get('pageshow'), 'function');
+  assert.equal(typeof winListeners.get('focus'), 'function');
+  winListeners.get('pageshow')();
+  assert.equal(current.getAttribute('data-ee-loader-detached'), '1');
+  assert.equal(current.querySelector('.loader-content'), null);
+  stop();
+  assert.equal(listeners.has('visibilitychange'), false);
+  assert.equal(winListeners.has('focus'), false);
 });
 
 test('loading-screen CSS takes the hidden loader out of hit testing immediately', () => {

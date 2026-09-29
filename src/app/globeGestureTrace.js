@@ -575,14 +575,15 @@ export function renderDiagnosticText({
   }
   const disable = inputTrace?.lastDisable;
   if (disable) {
-    lines.push(`INPUT DISABLE ${disable.stack || 'untraced'}`);
+    lines.push(`INPUT DISABLE module=${disable.module || 'untraced'} ${disable.stack || ''}`.trim());
   } else if (inputs?.enableInputs === false) {
-    lines.push('INPUT DISABLE untraced — no setter passed the camera input trace');
+    lines.push('INPUT DISABLE module=untraced — no setter passed the camera input trace');
   }
   const closed = trace?.diagClose;
   if (closed) {
+    const pair = (key) => `${closed.before?.[key] ?? '—'} → ${closed.after?.[key] ?? '—'}`;
     lines.push(
-      `AFTER DIAG CLOSE action=${closed.action || '—'} inputs ${closed.before?.enableInputs} → ${closed.after?.enableInputs}`,
+      `AFTER DIAG CLOSE action=${closed.action || '—'} inputs ${pair('enableInputs')} rotate ${pair('enableRotate')} zoom ${pair('enableZoom')} tilt ${pair('enableTilt')} module=${closed.inputTrace?.lastDisable?.module || '—'}`,
     );
   }
   const recent = trace?.events || [];

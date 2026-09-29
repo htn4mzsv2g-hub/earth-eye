@@ -131,12 +131,23 @@ export function initImageryBoxTool({
     if (!controller || savedCameraInputs !== null) return;
     savedCameraInputs = controller.enableInputs;
     controller.enableInputs = false;
+    try {
+      globalThis.__eeCameraInputHold = 'imageryBoxTool';
+    } catch {
+      /* non-DOM hosts */
+    }
   }
   function thawCamera() {
     const controller = cameraController();
     if (controller && savedCameraInputs !== null)
       controller.enableInputs = savedCameraInputs;
     savedCameraInputs = null;
+    try {
+      if (globalThis.__eeCameraInputHold === 'imageryBoxTool')
+        globalThis.__eeCameraInputHold = null;
+    } catch {
+      /* non-DOM hosts */
+    }
   }
 
   function endDrag() {

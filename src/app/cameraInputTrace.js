@@ -10,11 +10,37 @@
  * startup / DIAG-close put the flag back when cockpit is not active.
  */
 
+const KNOWN_INPUT_OWNERS = [
+  'cockpitTrackingController',
+  'imageryBoxTool',
+  'cctvGizmo',
+  'localGeojsonCore',
+];
+
 const trace = {
   lastDisable: null,
   lastEnable: null,
   restores: [],
 };
+
+/** Module name from a setter stack, when the write came from a known owner. */
+export function cameraInputOwnerName(stack) {
+  const text = String(stack || '');
+  return KNOWN_INPUT_OWNERS.find((name) => text.includes(name)) || 'untraced';
+}
+
+/**
+ * Active drag owners. Cockpit uses `body.cockpit-mode`. The gizmo and the
+ * imagery box set `globalThis.__eeCameraInputHold` while a drag is in progress.
+ * @param {Document} [doc]
+ * @returns {string|null}
+ */
+export function activeCameraInputOwner(doc) {
+  if (doc?.body?.classList?.contains?.('cockpit-mode')) return 'cockpit';
+  const hold = globalThis.__eeCameraInputHold;
+  if (hold === 'cctvGizmo' || hold === 'imageryBoxTool') return hold;
+  return null;
+}
 
 function stackLine() {
   const raw = new Error().stack || '';
@@ -35,8 +61,14 @@ export function readCameraInputTrace() {
   };
 }
 
-function remember(kind, value) {
-  const entry = { at: Date.now(), value: Boolean(value), stack: stackLine() };
+function remember(value) {
+  const stack = stackLine();
+  const entry = {
+    at: Date.now(),
+    value: Boolean(value),
+    stack,
+    module: cameraInputOwnerName(stack),
+  };
   if (value === false) trace.lastDisable = entry;
   else trace.lastEnable = entry;
   return entry;
@@ -67,7 +99,7 @@ export function installCameraInputTrace(viewer) {
     },
     set(value) {
       try {
-        remember(value === false ? 'disable' : 'enable', value);
+        remember(value);
       } catch {
         /* tracing must not break the camera */
       }
@@ -78,23 +110,28 @@ export function installCameraInputTrace(viewer) {
   return true;
 }
 
+const CAMERA_INPUT_FLAGS = ['enableInputs', 'enableRotate', 'enableZoom', 'enableTilt'];
+
 /**
- * Turn inputs back on when no cockpit session owns the camera.
+ * Force camera gestures back on unless cockpit or an active gizmo/imagery
+ * drag owns the pointer. DIAG Close on the v64 restore tip did not do this.
  * @param {object} viewer
  * @param {Document} [doc]
  * @param {string} [reason]
- * @returns {'cockpit'|'restored'|'already-on'|'no-controller'}
+ * @returns {string}
  */
 export function restoreCameraInputsUnlessCockpit(viewer, doc, reason = 'unclaimed') {
-  const body = doc?.body;
-  if (body?.classList?.contains?.('cockpit-mode')) return 'cockpit';
+  const owner = activeCameraInputOwner(doc);
+  if (owner) return owner;
   const controller = viewer?.scene?.screenSpaceCameraController;
   if (!controller) return 'no-controller';
-  if (controller.enableInputs === false) {
-    controller.enableInputs = true;
+  const stuck = CAMERA_INPUT_FLAGS.some((key) => controller[key] === false);
+  for (const key of CAMERA_INPUT_FLAGS) controller[key] = true;
+  if (stuck) {
     trace.restores.push({
       at: Date.now(),
       reason: String(reason).slice(0, 80),
+      module: trace.lastDisable?.module || 'untraced',
       prior: trace.lastDisable?.stack || 'no traced disable',
     });
     if (trace.restores.length > 8) trace.restores.shift();
@@ -108,4 +145,9 @@ export function resetCameraInputTrace() {
   trace.lastDisable = null;
   trace.lastEnable = null;
   trace.restores = [];
+  try {
+    globalThis.__eeCameraInputHold = null;
+  } catch {
+    /* */
+  }
 }
