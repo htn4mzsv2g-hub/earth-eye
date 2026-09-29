@@ -244,7 +244,14 @@ export function createOrbits({ state: layerState, services, parts, source }) {
       minElevDeg,
       requireVisible,
     });
-    return pass ? { status: 'ok', pass } : { status: 'none' };
+    // No elements → no-tle above. A pass is an SGP4 prediction, not telemetry.
+    if (!pass) return { status: 'none', telemetry: false };
+    return {
+      status: 'ok',
+      pass,
+      telemetry: false,
+      basis: 'sgp4-elements',
+    };
   }
 
   /** Resolve only loaded catalog identities; ambiguous names never pick a first row. */

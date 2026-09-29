@@ -32,6 +32,42 @@ test('satellite sources confine catalog groups and reject a cancelled body', asy
   );
 });
 
+test('satellite source keeps cache labels and does not read a failed body', async () => {
+  const source = createSatelliteSource({
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get(name) {
+          return {
+            'x-tle-source': 'celestrak',
+            'x-tle-cache': 'STALE-ERROR',
+            'x-tle-fetched-at': '2026-09-01T00:00:00.000Z',
+          }[name];
+        },
+      },
+      text: async () => '[]',
+    }),
+  });
+  const row = await source.readGroup('stations');
+  assert.equal(row.tleCache, 'STALE-ERROR');
+  assert.equal(row.tleSource, 'celestrak');
+  assert.equal(row.fetchedAt, '2026-09-01T00:00:00.000Z');
+  const failed = await createSatelliteSource({
+    fetchImpl: async () => ({
+      ok: false,
+      status: 502,
+      headers: { get: () => 'NONE' },
+      text: async () => {
+        throw new Error('failed body must not be parsed as elements');
+      },
+    }),
+  }).readGroup('visual');
+  assert.equal(failed.ok, false);
+  assert.equal(failed.status, 502);
+  assert.equal(failed.text, '');
+});
+
 test('satellite factories keep control state separate and construct without requests', () => {
   const source = {
     readGroup() {

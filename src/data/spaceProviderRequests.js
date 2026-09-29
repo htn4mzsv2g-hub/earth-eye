@@ -15,6 +15,23 @@ export function celestrakGpUrl(group) {
   return url;
 }
 
+/**
+ * True only for a CelesTrak GP catalog array.
+ * HTML, empty arrays, and bare TLE text are rejected so a failed upstream
+ * cannot be stored as if it were elements.
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function isCelestrakGpBody(body) {
+  const trimmed = String(body ?? '').trim();
+  return (
+    trimmed.startsWith('[') &&
+    (trimmed.includes('"OBJECT_NAME"') ||
+      trimmed.includes('"NORAD_CAT_ID"') ||
+      trimmed.includes('"TLE_LINE1"'))
+  );
+}
+
 export function launchLibraryRecentUrl(end) {
   const start = new Date(end.getTime() - 30 * 86400000);
   const url = new URL('https://ll.thespacedevs.com/2.3.0/launches/');

@@ -2,7 +2,7 @@ import path from 'node:path';
 import { promises as fsp } from 'node:fs';
 import {
   celestrakGpUrl,
-  celestrakTleUrl,
+  isCelestrakGpBody,
 } from '../../../src/data/spaceProviderRequests.js';
 
 /**
@@ -76,19 +76,12 @@ export function celestrakProxy() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = await res.text();
-    const trimmed = body.trim();
-    // Prefer OMM JSON (FORMAT=json). TLE text is only accepted from the AMSAT
-    // fallback path — never invent elements. Reject HTML/error pages.
-    const isOmmJson =
-      (trimmed.startsWith('[') || trimmed.startsWith('{')) &&
-      (trimmed.includes('"OBJECT_NAME"') ||
-        trimmed.includes('"NORAD_CAT_ID"') ||
-        trimmed.includes('"TLE_LINE1"'));
-    const isTleText = /^1 /m.test(body) && /^2 /m.test(body);
-    if (!isOmmJson && !isTleText) {
-      throw new Error('no OMM JSON or TLE lines in response');
+    // Primary path is GP/OMM JSON only. Two-line elements stay on the opt-in
+    // AMSAT path. HTML, error pages, and partial "1 " lines are not elements.
+    if (!isCelestrakGpBody(body)) {
+      throw new Error('no GP/OMM JSON in CelesTrak response');
     }
-    return { at: Date.now(), body, format: isOmmJson ? 'omm-json' : 'tle' };
+    return { at: Date.now(), body, format: 'omm-json' };
   }
 
   // Earth Eye: a keyless, clearly-labelled fallback for the `stations` group

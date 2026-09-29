@@ -36,7 +36,7 @@ function fixture(name, overrides = {}, preview = false) {
     resolveTerrainHeightRequest: async () => { throw new Error(detail); },
     ...overrides,
   };
-  const helpers = ['launchLibraryRequestHeaders', 'celestrakTleUrl', 'launchLibraryRecentUrl'].map(extract).join('\n');
+  const helpers = ['launchLibraryRequestHeaders', 'celestrakTleUrl', 'celestrakGpUrl', 'isCelestrakGpBody', 'launchLibraryRecentUrl'].map(extract).join('\n');
   const plugin = new Function(...Object.keys(deps), `${helpers}\n${extract(name)}\nreturn ${name}();`)(...Object.values(deps));
   let middleware;
   plugin[preview ? 'configurePreviewServer' : 'configureServer']({ middlewares: { use(_route, handler) { middleware = handler; } } });
@@ -123,20 +123,42 @@ test('CelesTrak retains invalid-group and unavailable responses', async () => {
   assert.equal(res.headers['x-tle-cache'], 'NONE');
 });
 
-test('CelesTrak retains fresh and stale TLE caches', async () => {
-  let now = Date.now();
+test('CelesTrak retains fresh and stale GP/OMM caches', async () => {
+  let now = Date.parse('2026-09-01T00:00:00.000Z');
   let calls = 0;
+  class Clock extends Date { static now() { return now; } }
+  const body = JSON.stringify([{ OBJECT_NAME: 'ISS (ZARYA)', NORAD_CAT_ID: 25544, TLE_LINE1: '1 25544U', TLE_LINE2: '2 25544' }]);
   const app = fixture('celestrakProxy', {
-    Date: { now: () => now },
-    fetch: async () => { if (++calls > 1) throw new Error(detail); return new Response('1 valid-fixture-TLE'); },
+    Date: Clock,
+    fetch: async (url) => {
+      calls += 1;
+      assert.equal(new URL(url).searchParams.get('FORMAT'), 'json');
+      if (calls > 1) throw new Error(detail);
+      return new Response(body);
+    },
   });
-  assert.equal((await app.request('/active')).headers['x-tle-cache'], 'MISS');
+  const miss = await app.request('/active');
+  assert.equal(miss.headers['x-tle-cache'], 'MISS');
+  assert.equal(miss.headers['x-orbit-format'], 'omm-json');
+  assert.equal(miss.headers['x-tle-fetched-at'], '2026-09-01T00:00:00.000Z');
   assert.equal((await app.request('/active')).headers['x-tle-cache'], 'HIT');
   now += 7 * 3600_000;
   const stale = await app.request('/active');
   assert.equal(stale.status, 200);
-  assert.equal(stale.body, '1 valid-fixture-TLE');
+  assert.equal(stale.body, body);
   assert.equal(stale.headers['x-tle-cache'], 'STALE-ERROR');
+  assert.equal(stale.headers['x-tle-source'], 'celestrak');
+  assert.equal(stale.headers['x-tle-fetched-at'], '2026-09-01T00:00:00.000Z');
+});
+
+test('CelesTrak rejects a non-element body instead of caching it', async () => {
+  const app = fixture('celestrakProxy', {
+    fetch: async () => new Response('1 valid-fixture-TLE'),
+  });
+  const res = await app.request('/active');
+  assert.equal(res.status, 502);
+  assert.equal(res.headers['x-tle-cache'], 'NONE');
+  assert.equal(res.body, 'celestrak fetch failed and no cache available');
 });
 
 test('terrain unexpected failures hide details', async () => {

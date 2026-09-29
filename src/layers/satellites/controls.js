@@ -5,6 +5,12 @@ import {
 } from '../../data/satelliteClass.js';
 import * as Cesium from 'cesium';
 import { ISS_NORAD, POINT_STYLES } from './policy.js';
+import {
+  SATELLITE_POSITION_KIND,
+  catalogEpochLabel,
+  retainedCatalogSource,
+  satelliteEpochMs,
+} from './elementProvenance.js';
 
 export function createControls({ state: layerState, services, parts, source }) {
   const { isExplicitLayerStateOrigin } = services.layerState;
@@ -203,6 +209,9 @@ export function createControls({ state: layerState, services, parts, source }) {
         latitude: pos.latitude,
         longitude: pos.longitude,
         altitudeM: pos.altitude,
+        epochMs: satelliteEpochMs(sat),
+        positionKind: SATELLITE_POSITION_KIND,
+        telemetry: false,
       };
     },
 
@@ -374,6 +383,9 @@ export function createControls({ state: layerState, services, parts, source }) {
         latitude: pos.latitude,
         longitude: pos.longitude,
         altitudeM: pos.altitude,
+        epochMs: satelliteEpochMs(sat),
+        positionKind: SATELLITE_POSITION_KIND,
+        telemetry: false,
       };
     },
 
@@ -536,23 +548,38 @@ export function createControls({ state: layerState, services, parts, source }) {
     },
 
     getStats() {
+      const unreachable = layerState._lastError === 'CelesTrak unreachable';
+      const hasCatalog = layerState._catalog.size > 0;
       const stats = {
         count: layerState._count,
         lastUpdate: layerState._lastUpdate,
         stale: false,
-        status:
-          layerState._lastError === 'CelesTrak unreachable'
-            ? 'unavailable'
-            : layerState._lastError
-              ? 'degraded'
-              : 'nominal',
+        status: unreachable
+          ? 'unavailable'
+          : layerState._lastError
+            ? 'degraded'
+            : 'nominal',
         error: layerState._lastError,
       };
-      // Earth Eye: a reduced AMSAT catalog must read FALLBACK, not LIVE.
+      if (hasCatalog && Number.isFinite(layerState._elementEpochMs)) {
+        stats.observedAt = layerState._elementEpochMs;
+        stats.loadingLabel = catalogEpochLabel(layerState._elementEpochMs);
+        stats.positionKind = SATELLITE_POSITION_KIND;
+      }
+      // Earth Eye: a reduced AMSAT or stale CelesTrak copy must read FALLBACK,
+      // not a fresh live catalog. A total outage stays UNAVAILABLE and, when
+      // the previous catalog is still on screen, names that copy's age.
       if (layerState._fallbackNote && stats.status !== 'unavailable') {
         stats.fallback = true;
         stats.status = 'fallback';
         stats.source = layerState._fallbackNote;
+      } else if (unreachable && hasCatalog) {
+        stats.source = retainedCatalogSource({
+          origin: layerState._catalogOrigin,
+          fetchedAt: layerState._catalogFetchedAt,
+          epochMs: layerState._elementEpochMs,
+          retrievedAt: layerState._lastUpdate,
+        });
       }
       return stats;
     },

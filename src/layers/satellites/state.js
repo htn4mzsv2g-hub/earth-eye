@@ -40,6 +40,22 @@ export function createState({ services }) {
 
   state._lastError = null;
 
+  /** @type {string|null} AMSAT or stale-cache note. Null when the catalog is a fresh CelesTrak copy. */
+
+  state._fallbackNote = null;
+
+  /** @type {number|null} When the server fetched the elements now on screen. */
+
+  state._catalogFetchedAt = null;
+
+  /** @type {number|null} Oldest element epoch in the catalog (provider time, not ingest time). */
+
+  state._elementEpochMs = null;
+
+  /** @type {string|null} 'celestrak' | 'amsat-fallback' | 'mixed' */
+
+  state._catalogOrigin = null;
+
   state._activeUpdateControllers = new Set();
 
   state._denseLoadController = null;

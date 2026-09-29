@@ -1,6 +1,10 @@
 import * as Cesium from 'cesium';
 import { satelliteClassLabel } from '../../data/satelliteClass.js';
 import { ISS_NORAD } from './policy.js';
+import {
+  SATELLITE_POSITION_KIND,
+  satelliteEpochMs,
+} from './elementProvenance.js';
 
 /**
  * Map one CelesTrak catalog satellite to a JSON-safe analyst record
@@ -10,7 +14,8 @@ import { ISS_NORAD } from './policy.js';
  * @param {Object|null|undefined} raw - {noradId, name, group, lat, lon, altitudeM, speedMps}.
  * @returns {{id: string, noradId: string|null, name: string|null,
  *   lat: number|null, lon: number|null, altitudeM: number|null,
- *   speedMps: number|null, satelliteClass: string|null, group: string|null}}
+ *   speedMps: number|null, satelliteClass: string|null, group: string|null,
+ *   elementEpochMs: number|null, positionKind: string|null}}
  */
 export function mapAnalystRecord(raw) {
   const num = (v) => (Number.isFinite(v) ? v : null);
@@ -39,6 +44,10 @@ export function mapAnalystRecord(raw) {
     satelliteClass:
       noradId || group ? satelliteClassLabel(group, { isIss }) : null,
     group,
+    elementEpochMs: Number.isFinite(raw?.elementEpochMs)
+      ? raw.elementEpochMs
+      : null,
+    positionKind: noradId || group ? SATELLITE_POSITION_KIND : null,
   };
 }
 
@@ -92,6 +101,7 @@ export function createRecords({ state, parts }) {
           lon: pos.lon,
           altitudeM: pos.altitudeM,
           speedMps: pos.speedMps,
+          elementEpochMs: satelliteEpochMs(sat),
         }),
       );
       return result.length < limit;

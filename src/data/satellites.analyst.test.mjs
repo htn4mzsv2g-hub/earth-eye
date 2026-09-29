@@ -38,6 +38,8 @@ test('satellite analyst record: full record maps every contract field', () => {
     speedMps: 7660,
     satelliteClass: 'STATION · ISS',
     group: 'stations',
+    elementEpochMs: null,
+    positionKind: 'sgp4-prediction',
   });
 });
 

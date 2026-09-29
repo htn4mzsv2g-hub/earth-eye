@@ -147,6 +147,27 @@ test('satellites are CelesTrak or unavailable', () => {
     source: 'AMSAT amateur TLE fallback for Stations (CelesTrak unreachable)',
   });
   assert.match(amsat.fallback, /AMSAT/);
+  const cached = classifyLayer('satellites', {
+    count: 40,
+    lastUpdate: 1,
+    status: 'fallback',
+    fallback: true,
+    source:
+      'cached CelesTrak elements for Stations fetched 2026-09-01T00:00:00.000Z (CelesTrak unreachable)',
+  });
+  assert.match(cached.fallback, /cached CelesTrak/);
+  assert.equal(cached.classification, 'DAILY / PERIODIC');
+  const held = classifyLayer('satellites', {
+    count: 40,
+    lastUpdate: 1,
+    status: 'unavailable',
+    error: 'CelesTrak unreachable',
+    source:
+      'cached CelesTrak elements, fetched 2026-09-01T00:00:00.000Z (CelesTrak unreachable)',
+  });
+  assert.equal(held.classification, 'BROKEN / UNAVAILABLE');
+  assert.match(held.fallback, /cached CelesTrak/);
+  assert.notEqual(held.classification, 'LIVE');
 });
 
 test('an enabled layer whose fetch fails with no data is BROKEN', () => {
