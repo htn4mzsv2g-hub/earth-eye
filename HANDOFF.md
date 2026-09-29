@@ -182,10 +182,10 @@ Honest status for the incoming developer. “Verified” here means owner, ChatG
 
 | Pointer | Where it points | How to treat it |
 | --- | --- | --- |
-| `wip/chatgpt-handoff-2026-09-29` | On origin, parked snapshot from a separate agent. Tip read 2026-09-29: `6a6164773509e12c2b325c92d052442bc2cc3976` (restore-line docs commit, not the atlas-eye tree). | **DO NOT MERGE. DO NOT DEPLOY.** |
+| `wip/chatgpt-handoff-2026-09-29` | Parked snapshot branch from a separate agent. Origin tip read after that park: `6ee111c15642a717b9f13321824ba248b9c1cc02` (“Park the local c6ef09d snapshot on the ChatGPT handoff branch.”), parent `6a61647`. It adds `wip-parked/` only. | **DO NOT MERGE. DO NOT DEPLOY.** |
 | `cursor/sat-celestrak-resilience-abf1` | `596af727b718186cc4a936ae1d6847fbab0db129` ([PR #4](https://github.com/htn4mzsv2g-hub/earth-eye/pull/4)) | Unfinished RESIL-01 CelesTrak resilience. Cancelled mid-flight. Not production. |
-| `fix/audit10-workflow` | `d78c49cd3bc4313077823965dd11d1f7d2138cf5` | Divergent historical WIP relative to the local atlas-eye line. In this clone that SHA is an ancestor of the restore branch (Fly v58 audit-10 checkpoint). Checking it out drops the later iPhone globe fixes. Not the known-good tree. |
-| Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **Not on GitHub.** Parent recorded in the transcript as `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`. That history is divergent from `fix/audit10-workflow` and from origin. The transcript records a failed push (auth, then parent object missing on the remote). This object is not in the restore clone. Do not recreate, force-push, merge, or deploy it from this handoff. |
+| `fix/audit10-workflow` | `d78c49cd3bc4313077823965dd11d1f7d2138cf5` | Divergent historical WIP versus the local atlas-eye line (remote tip is a squashed Fly v58 audit-10 checkpoint). In this clone that SHA is an ancestor of the restore branch. Checking it out drops the later iPhone globe fixes. Not the known-good tree. |
+| Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **History not on GitHub.** Parent recorded as `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`. That object is not on origin; the line diverges from `origin/fix/audit10-workflow`. The separate agent copied four files into `wip-parked/snapshot-from-local-c6ef09d/` on `6ee111c` and wrote `wip-parked/OMISSIONS.md`: the full tree and the divergent history were not uploaded. Do not recreate, force-push, merge, or deploy that history from this handoff. |
 
 `origin/work/fly-v58-checkpoint-2026-09-29` is the same SHA as `fix/audit10-workflow`. `origin/handoff/2026-09-29` (`b7259df`) is an older docs branch off `main`. Neither is production.
 
