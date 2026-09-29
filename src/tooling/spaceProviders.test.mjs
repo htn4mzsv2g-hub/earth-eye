@@ -12,6 +12,7 @@ import {
   launchLibraryRecentUrl,
 } from 'atlas-eye/sources/space';
 import * as compatibility from '../../server/providers/local.js';
+import '../../server/providers/space/celestrakOmm.test.mjs';
 
 function install(plugin, preview = false) {
   const routes = new Map();
@@ -74,12 +75,20 @@ test('compatibility exports retain the same LL2 header helper and TTL', () => {
   assert.equal(compatibility.LL2_CACHE_TTL_MS, LL2_CACHE_TTL_MS);
 });
 
-test('exported CelesTrak plugin coalesces refreshes, retains stale TLEs, and reads disk in a new instance', async (t) => {
+const GP_BODY = JSON.stringify([
+  {
+    OBJECT_NAME: 'ISS (ZARYA)',
+    NORAD_CAT_ID: 25544,
+    TLE_LINE1: '1 25544U',
+    TLE_LINE2: '2 25544',
+  },
+]);
+
+test('exported CelesTrak plugin coalesces GP/OMM refreshes, labels a stale copy, and reads disk in a new instance', async (t) => {
   isolateDisk(t);
-  let now = Date.now();
+  let now = Date.parse('2026-09-01T00:00:00.000Z');
   t.mock.method(Date, 'now', () => now);
   t.mock.method(console, 'warn', () => {});
-  const tle = 'ISS\n1 25544U fixture\n2 25544 fixture';
   let calls = 0,
     release;
   const gate = new Promise((resolve) => {
@@ -87,9 +96,12 @@ test('exported CelesTrak plugin coalesces refreshes, retains stale TLEs, and rea
   });
   t.mock.method(globalThis, 'fetch', async (url) => {
     calls++;
-    assert.equal(new URL(url).searchParams.get('GROUP'), 'stations');
+    const parsed = new URL(url);
+    assert.equal(parsed.origin, 'https://celestrak.org');
+    assert.equal(parsed.searchParams.get('GROUP'), 'stations');
+    assert.equal(parsed.searchParams.get('FORMAT'), 'json');
     await gate;
-    return new Response(tle);
+    return new Response(GP_BODY);
   });
   const request = install(celestrakProxy());
   assert.equal((await request('/api/celestrak', '/../bad')).status, 400);
@@ -97,27 +109,88 @@ test('exported CelesTrak plugin coalesces refreshes, retains stale TLEs, and rea
   const first = request('/api/celestrak', '/stations');
   const second = request('/api/celestrak', '/stations');
   release();
-  for (const res of await Promise.all([first, second]))
-    assert.equal(res.body, tle);
+  for (const res of await Promise.all([first, second])) {
+    assert.equal(res.body, GP_BODY);
+    assert.equal(res.headers['x-orbit-format'], 'omm-json');
+    assert.equal(res.headers['x-tle-source'], 'celestrak');
+  }
   assert.equal(calls, 1);
   assert.equal(
     (await request('/api/celestrak', '/stations')).headers['x-tle-cache'],
     'HIT',
   );
   now += 6 * 3600_000;
-  t.mock.method(globalThis, 'fetch', async () => new Response('not a TLE'));
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async () => new Response('<html>502</html>'),
+  );
   const stale = await request('/api/celestrak', '/stations');
-  assert.equal(stale.body, tle);
+  assert.equal(stale.body, GP_BODY);
   assert.equal(stale.headers['x-tle-cache'], 'STALE-ERROR');
+  assert.equal(stale.headers['x-tle-fetched-at'], '2026-09-01T00:00:00.000Z');
   t.mock.method(fsp, 'readFile', async () =>
-    JSON.stringify({ at: now, body: tle }),
+    JSON.stringify({ at: now, body: GP_BODY }),
   );
   t.mock.method(globalThis, 'fetch', async () => {
     throw Error('fresh disk must prevent fetch');
   });
   const disk = await install(celestrakProxy())('/api/celestrak', '/stations');
   assert.equal(disk.headers['x-tle-cache'], 'HIT');
-  assert.equal(disk.body, tle);
+  assert.equal(disk.body, GP_BODY);
+});
+
+test('CelesTrak failure with no cache is unavailable and does not call AMSAT', async (t) => {
+  isolateDisk(t);
+  const prior = process.env.TLE_AMSAT_FALLBACK;
+  t.after(() => {
+    if (prior === undefined) delete process.env.TLE_AMSAT_FALLBACK;
+    else process.env.TLE_AMSAT_FALLBACK = prior;
+  });
+  delete process.env.TLE_AMSAT_FALLBACK;
+  const urls = [];
+  t.mock.method(console, 'warn', () => {});
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    urls.push(String(url));
+    return new Response('bad gateway', { status: 502 });
+  });
+  const res = await install(celestrakProxy())('/api/celestrak', '/stations');
+  assert.equal(res.status, 502);
+  assert.equal(res.headers['x-tle-cache'], 'NONE');
+  assert.equal(res.body, 'celestrak fetch failed and no cache available');
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /celestrak\.org/);
+  assert.equal(
+    urls.some((url) => /amsat\.org/i.test(url)),
+    false,
+  );
+});
+
+test('AMSAT TLE fallback stays opt-in and is labeled when enabled', async (t) => {
+  isolateDisk(t);
+  const prior = process.env.TLE_AMSAT_FALLBACK;
+  t.after(() => {
+    if (prior === undefined) delete process.env.TLE_AMSAT_FALLBACK;
+    else process.env.TLE_AMSAT_FALLBACK = prior;
+  });
+  process.env.TLE_AMSAT_FALLBACK = '1';
+  const tle = 'ISS (ZARYA)\n1 25544U fixture\n2 25544 fixture\n';
+  t.mock.method(console, 'warn', () => {});
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const href = String(url);
+    if (/amsat\.org/i.test(href)) return new Response(tle);
+    return new Response('upstream down', { status: 502 });
+  });
+  const res = await install(celestrakProxy())('/api/celestrak', '/stations');
+  assert.equal(res.status, 200);
+  assert.equal(res.body, tle);
+  assert.equal(res.headers['x-tle-cache'], 'FALLBACK');
+  assert.equal(res.headers['x-tle-source'], 'amsat-fallback');
+  assert.equal(res.headers['x-orbit-format'], 'tle');
+  // Other groups stay failed even when the opt-in flag is on.
+  const blocked = await install(celestrakProxy())('/api/celestrak', '/gps-ops');
+  assert.equal(blocked.status, 502);
+  assert.equal(blocked.headers['x-tle-source'], 'celestrak');
 });
 
 for (const preview of [false, true])

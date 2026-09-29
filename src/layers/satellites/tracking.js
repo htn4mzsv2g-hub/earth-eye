@@ -1,5 +1,6 @@
 import * as Cesium from 'cesium';
 import { satelliteClassLabel } from '../../data/satelliteClass.js';
+import { elementProvenanceLine } from './elementProvenance.js';
 import {
   ISS_NORAD,
   CONTEXT_REFRESH_INTERVAL_MS,
@@ -372,6 +373,9 @@ export function createTracking({ state: layerState, services, parts, source }) {
         `DOCKED · ${companions[0]}${extra > 0 ? ` · +${extra}` : ''}`,
       );
     }
+    // After companions so the docked line stays where the card contract put it.
+    // Element epoch is provenance; the altitude is an SGP4 prediction.
+    if (sat) details.push(elementProvenanceLine(sat));
     const current = layerState._trackedEntity.gevLabelModel;
     // Compare the WHOLE detail array: comparing only `details[0]` swallowed any
     // change confined to the companions line, so the card would never republish.

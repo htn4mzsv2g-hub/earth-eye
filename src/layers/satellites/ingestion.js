@@ -1,6 +1,7 @@
 import { twoline2satrec } from 'satellite.js';
 import * as Cesium from 'cesium';
 import { CATALOG_GROUPS, ISS_NORAD, POINT_STYLES } from './policy.js';
+import { epochMsFromSatrec, satelliteFeedNotes } from './elementProvenance.js';
 
 export function createIngestion({
   state: layerState,
@@ -65,8 +66,10 @@ export function createIngestion({
         // Wiping the collection + catalog here would blank all 838 satellites while
         // the chip still read "just now". Keep the existing (stale) catalog on
         // screen and surface the outage instead — do NOT stamp _lastUpdate.
+        // A retained catalog stays UNAVAILABLE (not nominal) and names its age.
         if (results.every((r) => !r.ok)) {
           layerState._lastError = 'CelesTrak unreachable';
+          layerState._fallbackNote = null;
           console.warn(
             '[Data:Satellites] All CelesTrak groups failed — keeping existing catalog, surfacing outage',
           );
@@ -80,29 +83,22 @@ export function createIngestion({
         layerState._lastError = failed.length
           ? `${failed.length} CelesTrak group${failed.length === 1 ? '' : 's'} unavailable`
           : null;
-        // Earth Eye: say so when a group came from the AMSAT fallback.
-        const fallbackGroups = results
-          .filter((r) => r.ok && r.tleSource && r.tleSource !== 'celestrak')
-          .map((r) => r.tag);
-        const staleGroups = results.filter(
-          (r) => r.ok && r.tleCache === 'STALE-ERROR',
-        );
-        const oldest = staleGroups
+        const fetchedTimes = results
+          .filter((r) => r.ok)
           .map((r) => Date.parse(r.fetchedAt))
-          .filter(Number.isFinite)
-          .sort((a, b) => a - b)[0];
-        const notes = [];
-        if (fallbackGroups.length)
-          notes.push(
-            `AMSAT amateur TLE fallback for ${fallbackGroups.join(', ')} (CelesTrak unreachable)`,
-          );
-        if (staleGroups.length)
-          notes.push(
-            `cached CelesTrak TLEs for ${staleGroups.map((r) => r.tag).join(', ')}${
-              oldest ? ` fetched ${new Date(oldest).toISOString()}` : ''
-            } (CelesTrak unreachable)`,
-          );
-        layerState._fallbackNote = notes.length ? notes.join('; ') : null;
+          .filter(Number.isFinite);
+        if (fetchedTimes.length)
+          layerState._catalogFetchedAt = Math.min(...fetchedTimes);
+        const origins = new Set(
+          results.filter((r) => r.ok).map((r) => r.tleSource || 'celestrak'),
+        );
+        layerState._catalogOrigin =
+          origins.size === 1
+            ? [...origins][0]
+            : origins.has('amsat-fallback')
+              ? 'mixed'
+              : 'celestrak';
+        layerState._elementEpochMs = null;
 
         // Clear existing
         layerState._pointCollection.removeAll();
@@ -146,12 +142,21 @@ export function createIngestion({
           seen.add(noradId);
 
           // Store in catalog — element epoch age is provenance, not "live telemetry".
+          const epochMs = Number.isFinite(entry.epochMs)
+            ? entry.epochMs
+            : epochMsFromSatrec(satrec);
+          if (Number.isFinite(epochMs)) {
+            layerState._elementEpochMs =
+              layerState._elementEpochMs == null
+                ? epochMs
+                : Math.min(layerState._elementEpochMs, epochMs);
+          }
           layerState._catalog.set(noradId, {
             name: entry.name,
             satrec,
             group: entry.group,
             format: entry.format || (entry.line1 ? 'tle' : 'omm'),
-            epochMs: entry.epochMs ?? null,
+            epochMs: Number.isFinite(epochMs) ? epochMs : null,
           });
 
           // Propagate initial position
@@ -187,6 +192,12 @@ export function createIngestion({
 
           parts.labels._syncIssOverlay();
         }
+
+        // Notes need the element epoch, which TLE rows only have after satrec.
+        layerState._fallbackNote = satelliteFeedNotes({
+          results,
+          epochMs: layerState._elementEpochMs,
+        });
 
         layerState._count = layerState._points.size;
         layerState._catalogRevision++;
