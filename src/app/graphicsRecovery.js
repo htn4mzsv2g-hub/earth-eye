@@ -10,9 +10,12 @@
  * UNAVAILABLE while the renderer is down. Never claim fly-to / Follow succeeded.
  *
  * Deliberate test entry (same auth/permissions, no extra access):
- *   ?ee_non3d=1   or   sessionStorage ee:force-non3d=1
+ *   ?ee_non3d=1 on this navigation only.
+ * A stored ee:force-non3d flag must not divert a later normal visit.
  * Does not weaken CSP, auth, TLS, or LOGIN_*.
  */
+
+import { releaseLoadingScreen } from './loadingScreenRelease.js';
 
 export const GRAPHICS_INIT_CODE = 'GRAPHICS_INIT_FAILED';
 export const NON3D_QUERY_PARAM = 'ee_non3d';
@@ -106,13 +109,17 @@ export function wrapGraphicsInitFailure(error) {
 
 /**
  * Deliberate non-3D entry for audit/testing. Same session auth — no bypass.
+ * Only the query on THIS navigation counts. sessionStorage is ignored so a
+ * previous Continue / audit tab cannot freeze or skip the globe on a normal
+ * visit. The storage argument remains so older callers still type-check.
  * @param {string|URLSearchParams} [search]
- * @param {Storage|null} [storage]
+ * @param {Storage|null} [_storage]
  */
 export function shouldForceNon3dMode(
   search = globalThis.location?.search,
-  storage = globalThis.sessionStorage,
+  _storage = null,
 ) {
+  void _storage;
   try {
     const params =
       typeof search === 'string'
@@ -125,15 +132,13 @@ export function shouldForceNon3dMode(
   } catch {
     /* */
   }
-  try {
-    if (storage?.getItem?.(NON3D_STORAGE_KEY) === '1') return true;
-  } catch {
-    /* */
-  }
   return false;
 }
 
-/** Persist deliberate non-3D for this tab session (cleared on Retry 3D). */
+/**
+ * Legacy flag writer. Normal visits ignore this key — only `?ee_non3d=1`
+ * enters audit mode. Retry 3D still clears it so an old tab cannot look forced.
+ */
 export function setForceNon3dFlag(on, storage = globalThis.sessionStorage) {
   try {
     if (on) storage?.setItem?.(NON3D_STORAGE_KEY, '1');
@@ -313,14 +318,7 @@ export function mountGraphicsRecoveryPanel({
 }
 
 export function dismissLoadingScreen(loadingScreen) {
-  if (!loadingScreen) return;
-  loadingScreen.classList.add('hidden');
-  loadingScreen.setAttribute('aria-hidden', 'true');
-  const status = loadingScreen.querySelector?.('.loader-status');
-  if (status) {
-    status.style.animation = 'none';
-    status.style.color = '';
-  }
+  releaseLoadingScreen(loadingScreen);
 }
 
 export function clearCesiumErrorOverlay(doc = globalThis.document) {

@@ -27,7 +27,7 @@ Auth, CSP, TLS, LOGIN_* unchanged. Same session gate. No mock Earth observations
 Same auth/permissions — **no extra access**:
 
 - URL: `https://eartheye.us/?ee_non3d=1` (after login)
-- Or `sessionStorage.setItem('ee:force-non3d','1')` then reload
+- The query is required on that navigation. A stored `ee:force-non3d` flag does not change a later normal visit.
 
 **Retry 3D** clears the flag and reloads (drops `ee_non3d` query).
 

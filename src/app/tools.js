@@ -22,8 +22,8 @@ import {
   labelMapDependentUnavailable,
   defaultGraphicsRetry,
   degradedRunAction,
-  setForceNon3dFlag,
 } from './graphicsRecovery.js';
+import { attachDiagnosticViewer } from './globeDiagnosticsPanel.js';
 
 /** Attach scene tools, rendering listeners and the application debug handle. */
 export function createApplicationTools({
@@ -73,7 +73,6 @@ export function createApplicationTools({
         },
       onRetry: () => defaultGraphicsRetry(),
       onContinue: () => {
-        setForceNon3dFlag(true);
         labelMapDependentUnavailable(document.getElementById('atlas-console') || document.body);
       },
     });
@@ -115,6 +114,7 @@ export function createApplicationTools({
   }
 
   applyMobileGpuTuning(viewer);
+  attachDiagnosticViewer(viewer);
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager, {

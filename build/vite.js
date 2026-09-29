@@ -1,6 +1,17 @@
 import { applicationHtmlPlugin } from './application-html.js';
 import cesium from 'vite-plugin-cesium';
 
+/**
+ * Stamp baked into the client bundle. The image build has no `.git`
+ * (.dockerignore), so production must set EE_BUILD_ID
+ * (`fly deploy --build-arg EE_BUILD_ID=git-<sha>-<YYYYMMDDHHmm>`).
+ * An unset id stays `unknown` rather than inventing a SHA.
+ */
+export function resolveEeBuildId(env = process.env) {
+  const fromEnv = String(env.EE_BUILD_ID || '').trim();
+  return fromEnv || 'unknown';
+}
+
 /** Build browser assets with explicit inputs; never load environment or providers. */
 export function createBrowserViteConfig({
   plugins = [],
@@ -47,6 +58,7 @@ export function createBrowserViteConfig({
     define: {
       'import.meta.env.GOOGLE_MAPS_API_KEY': JSON.stringify(googleApiKey),
       'import.meta.env.CESIUM_ION_TOKEN': JSON.stringify(cesiumToken),
+      'import.meta.env.EE_BUILD_ID': JSON.stringify(resolveEeBuildId()),
     },
     build: { chunkSizeWarningLimit: 1500 },
   };

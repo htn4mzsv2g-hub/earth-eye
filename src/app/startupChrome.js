@@ -1,4 +1,5 @@
 import { initFirstRunExperience } from '../firstRunExperience.js';
+import { releaseLoadingScreen } from './loadingScreenRelease.js';
 
 /** Reveal welcome controls only after restoration and the loading transition. */
 export function startApplicationChrome({
@@ -29,7 +30,7 @@ export function startApplicationChrome({
     })
     .then(() => {
       if (disposed || signal.aborted) return;
-      loadingScreen.classList.add('hidden');
+      releaseLoadingScreen(loadingScreen);
       loadingScreen.addEventListener('transitionend', revealFirstRun, {
         once: true,
       });

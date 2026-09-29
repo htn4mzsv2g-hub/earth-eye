@@ -511,6 +511,7 @@ export function initMobileShell({
           <button type="button" data-atlas-action="tour" title="Cinematic tour"><span>✈</span><b>TOUR</b></button>
           <button type="button" data-atlas-open="credits" title="Licenses"><span>ⓘ</span><b>LICENSES</b></button>
           <button type="button" data-atlas-open="safety" title="Safety / data limits"><span>⚠</span><b>SAFETY</b></button>
+          <button type="button" data-ee-globe-diag title="Globe gesture diagnostic. Opening it keeps the last drag or pinch."><span>⌁</span><b>DIAG</b></button>
         </section>
         <section class="ee-more-group" data-group="account"><h3>ACCOUNT</h3>
           <p class="ee-more-hint">Sign in required for security &amp; session controls.</p>
