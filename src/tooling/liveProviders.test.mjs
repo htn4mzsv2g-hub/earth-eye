@@ -50,10 +50,10 @@ function environment(t, values) {
 }
 
 test('live entry resolves in Node and aircraft normalization stays independently portable', async () => {
-  const entry = await import('gods-eye-view/server/providers/live');
+  const entry = await import('atlas-eye/server/providers/live');
   assert.equal(entry.openSkyProxy, providers.openSkyProxy);
   assert.equal(entry.aisLiveProxy, providers.aisLiveProxy);
-  const normalizer = await import('gods-eye-view/sources/adsb-lol');
+  const normalizer = await import('atlas-eye/sources/adsb-lol');
   assert.equal(
     normalizer.normalizeAdsbLolAircraftState,
     portable.normalizeAdsbLolAircraftState,

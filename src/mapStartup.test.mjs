@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   loadPhotorealisticTileset,
   selectMapStartupRoute,
+  GLOBE_STACK_PRIORITY,
+  describePhotorealStatus,
 } from './mapStartup.js';
 
 function fakeCesium(outcomes = []) {
@@ -44,14 +46,16 @@ test('map startup route reflects the best configured provider', () => {
     'google-direct',
   );
   assert.equal(selectMapStartupRoute({ cesiumToken: 'ion' }), 'google-ion');
-  assert.equal(selectMapStartupRoute(), 'osm');
+  assert.equal(selectMapStartupRoute(), 'none');
 });
 
-test('no credentials skip photoreal loading and preserve keyless startup', async () => {
+test('no credentials skip photoreal loading (Google OFF → Esri caller)', async () => {
   const Cesium = fakeCesium();
   const result = await loadPhotorealisticTileset(Cesium);
   assert.equal(result.tileset, null);
-  assert.equal(result.route, 'osm');
+  assert.equal(result.route, 'none');
+  assert.equal(result.status.fallbackStackId, 'esri-imagery');
+  assert.match(result.status.reason, /Google Photorealistic 3D OFF/);
   assert.equal(Cesium.calls.length, 0);
 });
 
@@ -104,14 +108,14 @@ test('a failed direct-only request does not consume an implicit Cesium token', a
     googleApiKey: 'google-secret',
   });
   assert.equal(result.tileset, null);
-  assert.equal(result.route, 'osm');
+  assert.equal(result.route, 'none');
   assert.equal(result.errors.length, 1);
   assert.equal(Cesium.calls.length, 1);
   assert.equal(Cesium.calls[0].googleKey, 'google-secret');
   assert.equal(Cesium.GoogleMaps.defaultApiKey, undefined);
 });
 
-test('failed direct and ion requests preserve the keyless OSM fallback', async () => {
+test('failed direct and ion requests fall back to none (Esri next)', async () => {
   const Cesium = fakeCesium([
     new Error('direct denied'),
     new Error('ion denied'),
@@ -121,7 +125,8 @@ test('failed direct and ion requests preserve the keyless OSM fallback', async (
     cesiumToken: 'ion-secret',
   });
   assert.equal(result.tileset, null);
-  assert.equal(result.route, 'osm');
+  assert.equal(result.route, 'none');
+  assert.equal(result.status.fallbackStackId, 'esri-imagery');
   assert.equal(result.errors.length, 2);
   assert.equal(Cesium.calls.length, 2);
   assert.equal(Cesium.GoogleMaps.defaultApiKey, undefined);
@@ -139,4 +144,16 @@ test('independent source configurations never mutate shared SDK credentials', as
   assert.equal(Cesium.calls[1].ionToken, 'source-b');
   assert.equal(Cesium.Ion.defaultAccessToken, 'untouched-ion');
   assert.equal(Cesium.GoogleMaps.defaultApiKey, 'untouched-google');
+});
+
+test('globe stack priority is Google direct → ion → Esri → OSM', () => {
+  assert.deepEqual([...GLOBE_STACK_PRIORITY], [
+    'google-direct',
+    'google-ion',
+    'esri-imagery',
+    'osm',
+  ]);
+  const off = describePhotorealStatus({});
+  assert.equal(off.active, false);
+  assert.equal(off.fallbackStackId, 'esri-imagery');
 });

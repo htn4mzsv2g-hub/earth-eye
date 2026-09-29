@@ -21,7 +21,7 @@ import {
   TRAIL_COLOR,
   BILLBOARD_SCALE,
   GROUND_SCALE,
-  MIL_ICON_COLOR,
+  militaryIconColor,
   AMBER_TRANSPARENT,
   TRACKED_ICON_COLOR,
 } from './policy.js';
@@ -123,6 +123,11 @@ export function createTracking({
           ? `${Math.round(described.track)}°`
           : '',
         icao24,
+        // Provenance of the military identification (spec §14-15).
+        military:
+          info?.militaryFlag === false
+            ? 'not flagged military by the provider'
+            : `yes (${info?.militaryProvenance || 'adsb.lol military feed'})`,
         // Honesty cue: the contact is coasting on dead reckoning, so the
         // narrated position/velocity are last-known rather than live.
         status: described.stale ? 'stale (missed polls)' : 'live',
@@ -785,7 +790,7 @@ export function createTracking({
         BILLBOARD_SCALE *
         (CLASS_SCALE_2D[meta?.klass] || 1) *
         (meta?.onGround ? GROUND_SCALE : 1);
-      bb.color = MIL_ICON_COLOR;
+      bb.color = militaryIconColor(meta);
       bb.rotation = flightState._lastTrackedRotation;
     }
     flightState._lastCamPoseSig = ''; // force a fleet rotation pass on the next tick

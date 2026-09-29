@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { createTomTomMonthlyBudget } from './places/tomtomBudget.js';
 import { promises as fsp } from 'node:fs';
 
 import {
@@ -41,6 +42,8 @@ import {
  * @returns {import('vite').Plugin}
  */
 export function tomtomProxy() {
+  const monthlyBudget = createTomTomMonthlyBudget();
+
   const TILE_TTL_MS = 120_000;
   const CACHE_DIR = path.join(process.cwd(), '.gev-cache', 'tomtom');
   const BUDGET_PATH = path.join(CACHE_DIR, 'budget.json');
@@ -143,6 +146,7 @@ export function tomtomProxy() {
       'https://api.tomtom.com/traffic/map/4/tile/flow/relative/' +
       `${z}/${x}/${y}.pbf?key=${encodeURIComponent(process.env.TOMTOM_API_KEY)}`;
     recordUpstreamFetch(); // attempts count — upstream bills the request either way
+    monthlyBudget.record('tiles', 1);
     const res = await fetch(url, {
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -187,6 +191,7 @@ export function tomtomProxy() {
             dailyCount: b.count,
             budget: dailyBudgetLimit(),
             date: b.date,
+            monthly: monthlyBudget.snapshot(),
           });
           return;
         }
@@ -222,12 +227,19 @@ export function tomtomProxy() {
           return;
         }
 
-        // Budget governor: over the soft cap, last-good data beats a dead layer.
-        if (isTomTomOverBudget(currentBudget(), dailyBudgetLimit())) {
+        // Budget governor: daily soft cap + monthly free-tier hard cap (200K/mo).
+        const monthlyAdmit = monthlyBudget.admit('tiles');
+        if (
+          isTomTomOverBudget(currentBudget(), dailyBudgetLimit()) ||
+          !monthlyAdmit.ok
+        ) {
           if (entry) {
             sendTile(entry.buf, 'STALE-BUDGET');
           } else {
-            sendJson(429, { error: 'budget' });
+            sendJson(429, {
+              error: 'budget',
+              monthly: monthlyAdmit.status || monthlyBudget.status('tiles'),
+            });
           }
           return;
         }

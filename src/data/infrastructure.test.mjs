@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import * as Cesium from 'cesium';
-import { createInfrastructureLayers } from 'gods-eye-view/infrastructure';
-import { createLocalGeoJsonLayer } from 'gods-eye-view/infrastructure/geojson';
+import { createInfrastructureLayers } from 'atlas-eye/infrastructure';
+import { createLocalGeoJsonLayer } from 'atlas-eye/infrastructure/geojson';
 
 function services() {
   const records = new Map();
@@ -42,9 +42,9 @@ test('package exports import without an application, DOM, fetch, or timers', () 
     for (const key of ['window', 'document']) {
       delete globalThis[key];
     }
-    await import('gods-eye-view/infrastructure');
-    await import('gods-eye-view/infrastructure/geojson');
-    await import('gods-eye-view/infrastructure/lod');
+    await import('atlas-eye/infrastructure');
+    await import('atlas-eye/infrastructure/geojson');
+    await import('atlas-eye/infrastructure/lod');
   `,
     ],
     { cwd: new URL('../..', import.meta.url), encoding: 'utf8' },
@@ -61,8 +61,8 @@ test('infrastructure factory preserves identity and creates independent state wi
   assert.deepEqual(
     first.map(({ id, name, source }) => ({ id, name, source })),
     [
-      { id: 'local-datacenters', name: 'Datacenters', source: 'Local' },
-      { id: 'local-dams', name: 'Dams', source: 'USACE' },
+      { id: 'local-datacenters', name: 'Datacenters', source: 'OSM snapshot' },
+      { id: 'local-dams', name: 'Dams', source: 'OSM/OpenInfraMap snapshot' },
     ],
   );
   first.forEach((layer, index) => {
@@ -171,9 +171,7 @@ test('consumer build includes only infrastructure code and resolves assets under
       write: false,
       assetsInlineLimit: 0,
       rollupOptions: {
-        input: fileURLToPath(
-          import.meta.resolve('gods-eye-view/infrastructure'),
-        ),
+        input: fileURLToPath(import.meta.resolve('atlas-eye/infrastructure')),
         external: ['cesium'],
         preserveEntrySignatures: 'strict',
       },

@@ -8,6 +8,13 @@ import {
   selectEarthquakeOverlayCohort,
   mapAnalystRecord,
 } from './model.js';
+import { isPointerFree } from '../../data/inputOwnership.js';
+import {
+  registerEntityContext,
+  selectEntityContext,
+  clearSelectedEntityContextForLayer,
+} from '../../data/contextStore.js';
+import { requestEventDetail, temporalStatusFromAgeMs } from '../../data/eventDetail.js';
 export * from './model.js';
 export { createUsgsEarthquakeSource } from './source.js';
 
@@ -23,6 +30,74 @@ export function createEarthquakesLayer({ source, overlayHost } = {}) {
   let _lastUpdate = null;
   let _lastError = null;
   let _enabled = false;
+  let _clickHandler = null;
+  let _selectedId = null;
+
+
+  function publishQuakeSelection(entity) {
+    if (!entity) return;
+    const now = Cesium.JulianDate.now();
+    const p = entity.properties;
+    const usgsId = p?.usgsId?.getValue?.(now) ?? String(entity.id || '').replace(/^earthquake:/, '');
+    const mag = p?.mag?.getValue?.(now);
+    const place = p?.place?.getValue?.(now);
+    const time = p?.time?.getValue?.(now);
+    const depth = p?.depth?.getValue?.(now);
+    const cartesian = entity.position?.getValue?.(now);
+    const carto = cartesian ? Cesium.Cartographic.fromCartesian(cartesian) : null;
+    const lat = carto ? Cesium.Math.toDegrees(carto.latitude) : null;
+    const lon = carto ? Cesium.Math.toDegrees(carto.longitude) : null;
+    const ageMs = Number.isFinite(Number(time)) ? Date.now() - Number(time) : NaN;
+    const ctxEntity = entity;
+    registerEntityContext(ctxEntity, {
+      id: `earthquakes:${usgsId}`,
+      layerId: 'earthquakes',
+      layerName: 'Earthquakes (24h)',
+      source: 'USGS',
+      label: place ? `M${mag ?? '?'} · ${place}` : `Earthquake ${usgsId}`,
+      latitude: lat,
+      longitude: lon,
+      properties: {
+        eventType: 'earthquake',
+        usgsId,
+        mag,
+        place,
+        time,
+        depthKm: depth,
+        temporalStatus: temporalStatusFromAgeMs(ageMs, { staleAfterMs: 864e5 }),
+        source: 'USGS',
+        note: 'USGS M2.5+ catalog event — magnitude and place from the source feed.',
+      },
+    });
+    selectEntityContext(ctxEntity);
+    requestEventDetail('earthquakes', { eventId: usgsId });
+  }
+
+  function installSelection() {
+    if (_clickHandler || !_viewer?.scene?.canvas) return;
+    _clickHandler = new Cesium.ScreenSpaceEventHandler(_viewer.scene.canvas);
+    _clickHandler.setInputAction((click) => {
+      if (!_enabled || !isPointerFree() || !click?.position) return;
+      const picked = _viewer.scene.pick(click.position);
+      const entity = picked?.id;
+      const eid = typeof entity?.id === 'string' ? entity.id : null;
+      if (eid && eid.startsWith('earthquake:') && _dataSource?.entities.getById(eid)) {
+        _selectedId = eid;
+        publishQuakeSelection(entity);
+        return;
+      }
+      if (_selectedId) {
+        _selectedId = null;
+        clearSelectedEntityContextForLayer('earthquakes');
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  }
+
+  function removeSelection() {
+    if (_clickHandler && !_clickHandler.isDestroyed?.()) _clickHandler.destroy();
+    _clickHandler = null;
+    _selectedId = null;
+  }
 
   const layer = {
     id: 'earthquakes',
@@ -51,12 +126,15 @@ export function createEarthquakesLayer({ source, overlayHost } = {}) {
       // layer has no per-frame animator to keep the render loop alive for.
       if (_dataSource) _dataSource.show = true;
       overlayHost.setVisible(EARTHQUAKE_OVERLAY_SOURCE_ID, true);
+      installSelection();
     },
 
     disable(viewer) {
       _request?.abort();
       _request = null;
       _enabled = false;
+      removeSelection();
+      clearSelectedEntityContextForLayer('earthquakes');
       if (_dataSource) _dataSource.show = false;
       overlayHost.clearSource(EARTHQUAKE_OVERLAY_SOURCE_ID);
       overlayHost.setVisible(EARTHQUAKE_OVERLAY_SOURCE_ID, false);
@@ -164,6 +242,8 @@ export function createEarthquakesLayer({ source, overlayHost } = {}) {
     destroy(viewer = _viewer) {
       _request?.abort();
       _request = null;
+      removeSelection();
+      clearSelectedEntityContextForLayer('earthquakes');
       _viewer = null;
       _enabled = false;
       overlayHost.clearSource(EARTHQUAKE_OVERLAY_SOURCE_ID);
@@ -181,12 +261,14 @@ export function createEarthquakesLayer({ source, overlayHost } = {}) {
      * Snapshot the layer's in-memory earthquake records as plain JSON-safe
      * objects for the analyst query engine. On-demand only (called at most
      * once per spoken query) — zero per-frame cost, no listeners, no caching.
-     * Returns [] while the layer is disabled or empty.
+     * Returns loaded earthquake records even when display is off (EE-LIVE-5
+     * query-vs-display). Returns [] when uninitialized or empty. Enabling the
+     * layer remains a separate SHOW ON MAP action.
      * @param {number} [maxCount=2000] - Maximum records to return (truncation).
      * @returns {Array<Object>} See mapAnalystRecord for the record shape.
      */
     getAnalystRecords(maxCount = 2000) {
-      if (!_dataSource || !_dataSource.show) return [];
+      if (!_dataSource) return [];
       const entities = _dataSource.entities.values;
       if (!entities.length) return [];
       const limit = Number.isFinite(maxCount)

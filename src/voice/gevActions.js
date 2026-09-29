@@ -526,8 +526,10 @@ export function createGevActionRunner({
             'Nearest-aircraft selection needs a preset, place name, or latitude and longitude',
         };
       }
+      // Stage 3.3: complete when the aircraft is selected — do not wait for
+      // the camera fly-to to settle (that timed out headless QA).
       const locationArgs = {
-        waitForArrival: true,
+        waitForArrival: false,
         ...(args.locationId ? { locationId: args.locationId } : {}),
         ...(args.locationQuery ? { query: args.locationQuery } : {}),
         ...(hasCoordinates
@@ -674,6 +676,9 @@ export function createGevActionRunner({
         layerId,
         label: selection.label,
         feed,
+        // Deterministic completion: selection done; camera may still be moving.
+        complete: true,
+        waitForCamera: false,
         aircraft: {
           id: stableAircraftId,
           callsign: aircraft.callsign || null,
@@ -4237,9 +4242,12 @@ function analystProviders(
   return {
     getRecords(layerKey) {
       const layer = dataManager.layers.get(layerKey);
-      if (!layer || !dataManager.isEnabled(layerKey)) return [];
+      if (!layer) return [];
       const mod = layer.module;
       if (typeof mod?.getAnalystRecords !== 'function') return [];
+      // EE-LIVE-5: QUERY DATA does not require display ON. Modules may still
+      // return [] when they hold no warm records. Enabling a layer (SHOW ON
+      // MAP) remains a separate action.
       const requestedLimit = recordLimitByLayer?.[layerKey];
       return Number.isFinite(requestedLimit)
         ? mod.getAnalystRecords(requestedLimit) || []

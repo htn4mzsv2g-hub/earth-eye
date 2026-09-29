@@ -1,19 +1,37 @@
 import { LayerLifecycle } from '../data/lifecycle.js';
 import { LayerPresentation } from './layerPresentation.js';
 import { createCyberSonarScene } from '../cyberSonarScene.js';
+import { applyServerPolicy, atlasEnablePolicy } from '../atlas/enablePolicy.js';
+import {
+  createDegradedDataManager,
+  createDegradedPresentation,
+} from './graphicsRecovery.js';
 /** Register the application layer catalog before allowing state restoration. */
 export function createApplicationData({
-  scene: { viewer, mapStackController },
+  scene,
   controls: { styleManager },
   catalog,
   allowQaRegistration,
   onData,
   defer,
 }) {
+  const { viewer, mapStackController, graphicsFailed } = scene;
+  // Non-3D: no Cesium layer lifecycle — panels use real APIs (CCTV, events,
+  // capabilities, geocode). Registry source-health still renders.
+  if (graphicsFailed || !viewer) {
+    const dataManager = createDegradedDataManager();
+    const presentation = createDegradedPresentation();
+    onData?.(dataManager);
+    return { dataManager, catalog, presentation, graphicsFailed: true };
+  }
   // Initialize data layer manager
   const dataManager = new LayerLifecycle(viewer, {
     allowQaRegistration,
+    // Earth Eye §3 / locked policy: one non-removable gate for every enable
+    // path (toggle, setEnabled, scenes, URL/share restore, commands, voice).
+    enablePolicy: atlasEnablePolicy,
   });
+  void applyServerPolicy(dataManager);
   defer(async () => {
     await dataManager.destroyAll();
     if (dataManager.layers.size)

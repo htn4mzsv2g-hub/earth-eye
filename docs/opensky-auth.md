@@ -1,3 +1,5 @@
+> **Earth Eye fork note:** this document is inherited from upstream God's Eye View (Bilawal Sidhu, MIT) and is kept for reference. Where it says "God's Eye View" it means the upstream project; the same code and rules apply to Earth Eye. See [NOTICE.md](../NOTICE.md).
+
 # OpenSky Auth Setup
 
 God's Eye View uses explicit auth modes for `/api/opensky`:

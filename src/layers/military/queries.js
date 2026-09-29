@@ -619,16 +619,12 @@ export function createQueries({
      * Snapshot the layer's in-memory records as plain JSON-safe objects for
      * the analyst query engine. On-demand only (called at most once per
      * spoken query) — zero per-frame cost, no listeners, no caching. Returns
-     * [] while the layer is disabled or empty.
+     * EE-LIVE-5: returns warm records even when display is off.
      * @param {number} [maxCount=2000] - Maximum records to return (truncation).
      * @returns {Array<Object>} See mapAnalystRecord for the record shape.
      */
     getAnalystRecords(maxCount = 2000) {
-      if (
-        !flightState._billboardCollection ||
-        !flightState._billboardCollection.show ||
-        flightState.records.data.size === 0
-      )
+      if (!flightState.records?.data || flightState.records.data.size === 0)
         return [];
       const limit = Number.isFinite(maxCount)
         ? Math.max(1, Math.floor(maxCount))

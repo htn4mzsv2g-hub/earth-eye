@@ -126,7 +126,7 @@ export function createState({ services }) {
 
   /** @type {'sim'|'hide'} Live-mode treatment of roads without flow data. */
 
-  layerState._uncoveredMode = 'sim';
+  layerState._uncoveredMode = 'hide';
 
   /**
    * Jam-viz prototype mode: 'density' = deep-jam density boost + platoon queues

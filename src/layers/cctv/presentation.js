@@ -1,6 +1,7 @@
 import { CCTV_AMBIENT_CARD_MAX } from '../../data/cctvLod.js';
 import { ACTIVE_FRAME_REFRESH_MS, IDLE_FRAME_REFRESH_MS } from './policy.js';
 import { headingHudToken, isHeadingEstimated } from './headingConfidence.js';
+import { cctvMediumLabel } from '../../sources/cctvTypes.js';
 
 export function createPresentation({
   state: layerState,
@@ -30,13 +31,7 @@ export function createPresentation({
     const overlapCount = parts.geometry.coverageNeighborCount(active);
     const viewKey = parts.model.currentViewContext();
     const viewBand = viewKey.split(':')[0] || 'global';
-    const video = parts.model.isVideoFeedType(active.camera.feedType);
-    const medium =
-      active.camera.feedType === 'hls'
-        ? 'LIVE VIDEO'
-        : video
-          ? 'VIDEO CLIP'
-          : 'STILL IMAGE ONLY';
+    const health = layerState._healthById.get(active.camera.id) || null;
     const calBadge = parts.calibration.deriveCalBadge(active.camera);
 
     return [
@@ -51,7 +46,16 @@ export function createPresentation({
       `PROJ ${layerState._showProjection ? 'MONITOR' : 'OFF'}`,
       layerState._coverageMode === 'viewshed' ? 'VIEWSHED' : null,
       `CAL ${calBadge.replace('-', ' ').toUpperCase()}`,
-      medium,
+      health?.sourceKind
+        ? `SRC ${String(health.sourceKind).toUpperCase()}`
+        : `SRC ${String(active.camera.feedType || 'image').toUpperCase()}`,
+      // What is actually on screen, next to the source-type tag above.
+      cctvMediumLabel({
+        feedType: active.camera.feedType,
+        isVideo:
+          parts.model.isVideoFeedType(active.camera.feedType) &&
+          active.projection?.mode !== 'image',
+      }),
       `${viewBand.toUpperCase()} CONTEXT`,
     ]
       .filter(Boolean)

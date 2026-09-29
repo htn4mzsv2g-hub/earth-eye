@@ -2,10 +2,11 @@ import { catalogControlServices } from './catalog.js';
 import { StyleManager } from '../ui/composition.js';
 import { flyToAustin } from '../camera.js';
 import { initCockpitCloudEffects } from '../cockpitCloudEffects.js';
+import { createDegradedStyleManager } from './graphicsRecovery.js';
 
 /** Construct the existing controls and camera presentation. */
 export function createApplicationControls({
-  scene: { viewer, mapStackController, operations },
+  scene,
   loaderStatus,
   Controls = StyleManager,
   services,
@@ -13,6 +14,18 @@ export function createApplicationControls({
   placeSearch,
   defer,
 }) {
+  const { viewer, mapStackController, operations, graphicsFailed } = scene;
+  // Non-3D / graphics-failed: shell boots without StyleManager/Cesium.
+  if (graphicsFailed || !viewer) {
+    loaderStatus.textContent =
+      '3D unavailable — loading data shell…';
+    return {
+      styleManager: createDegradedStyleManager(),
+      weatherEffects: null,
+      cockpitCloudEffects: null,
+      graphicsFailed: true,
+    };
+  }
   // Initialize the style manager (post-processing, HUD, locations, share links)
   const styleManager = new Controls(viewer, {
     services: {

@@ -72,8 +72,22 @@ function refreshFailureFromStats(stats, label) {
  * for real-time data overlays on the CesiumJS globe.
  */
 export class LayerLifecycle {
-  constructor(viewer, { allowQaRegistration = false } = {}) {
+  constructor(
+    viewer,
+    { allowQaRegistration = false, enablePolicy = null } = {},
+  ) {
     this.viewer = viewer;
+    // Non-removable, synchronous enable policy (Earth Eye §3 permission gate
+    // and locked-policy exclusions). Unlike visibility guards it cannot be
+    // unsubscribed or replaced after construction, and every enable path
+    // (toggle, setEnabled, scene playback, URL/share restore, adoption)
+    // consults it before any lifecycle work starts.
+    Object.defineProperty(this, '_enablePolicy', {
+      value: typeof enablePolicy === 'function' ? enablePolicy : null,
+      writable: false,
+      configurable: false,
+      enumerable: false,
+    });
     this._activityListeners = new Set();
     this.layers = new Map(); // id → { module, enabled, initialized, intervalId, lifecycleState, lifecycleUncertain }
     this._listeners = new Set();
@@ -131,6 +145,10 @@ export class LayerLifecycle {
       refreshing: false,
       refreshEpoch: 0,
       managerRefreshError: null,
+      // Source-health bookkeeping (epoch ms): when the manager last asked the
+      // layer for data, and when that last completed without a failure.
+      managerLastAttemptAt: null,
+      managerLastSuccessAt: null,
       // `enabled` is authoritative settled visibility. Awaited lifecycle work
       // is reported separately so callers never mistake activation for ON or
       // teardown for OFF before the transaction settles.
@@ -236,6 +254,8 @@ export class LayerLifecycle {
       loading: lifecycleLoading || moduleStats.loading === true,
       refreshing: entry.refreshing || moduleStats.refreshing === true,
       managerRefreshError: entry.managerRefreshError,
+      managerLastAttemptAt: entry.managerLastAttemptAt,
+      managerLastSuccessAt: entry.managerLastSuccessAt,
     };
   }
 
@@ -267,6 +287,7 @@ export class LayerLifecycle {
       return false;
     const refreshEpoch = ++entry.refreshEpoch;
     entry.refreshing = true;
+    entry.managerLastAttemptAt = Date.now();
     this._publishActivity({ type: 'status' });
     this._notifyListeners({
       type: 'refresh-transition',
@@ -326,6 +347,7 @@ export class LayerLifecycle {
     entry.managerRefreshError = failure
       ? String(failure.message || failure)
       : null;
+    if (!failure) entry.managerLastSuccessAt = Date.now();
     this._publishActivity({ type: 'status' });
     if (failure) {
       console.warn(`[Data] ${layerId} refresh error:`, failure);
@@ -921,6 +943,10 @@ export class LayerLifecycle {
         entry.lifecycleUncertain = !cleanupConfirmed;
         settleLifecycle();
         console.warn(`[Data] ${layerId} ${phase} error:`, error);
+        // Source health: a provider that fails on enable must read as
+        // offline / rate limited / key required, not as a quiet "off".
+        if (phase === 'update' || phase === 'init')
+          entry.managerRefreshError = String(error?.message || error);
         recordVisibilityFailure(phase, error);
         this._publishActivity({ type: 'status' });
         this._notifyListeners({
@@ -991,6 +1017,7 @@ export class LayerLifecycle {
 
       // First update immediately
       this._setVisibilityIntentPhase(entry, intentEpoch, 'update');
+      entry.managerLastAttemptAt = Date.now();
       try {
         const updated = await entry.module.update(this.viewer, { signal });
         if (updated === false) throw lifecycleRejectedError(layerId, 'update');
@@ -1005,6 +1032,17 @@ export class LayerLifecycle {
       }
       if (signal?.aborted) return finishCancelledEnable('update');
       entry.managerRefreshError = null;
+      try {
+        if (
+          !refreshFailureFromStats(
+            this._moduleStats(entry),
+            entry.module.name || layerId,
+          )
+        )
+          entry.managerLastSuccessAt = Date.now();
+      } catch {
+        /* health bookkeeping never blocks enabling */
+      }
 
       entry.enabled = true;
       entry.lifecycleUncertain = false;
@@ -1074,6 +1112,20 @@ export class LayerLifecycle {
     const entry = this.layers.get(layerId);
     if (!entry) return { intentEpoch: null, promise: Promise.resolve() };
     const desiredState = Boolean(shouldEnable);
+    if (desiredState) {
+      const policyReason = this.enablePolicyReason(layerId, origin);
+      if (policyReason) {
+        this._notifyListeners({
+          type: 'visibility-blocked',
+          layerId,
+          enabled: true,
+          origin,
+          reason: policyReason,
+          policy: true,
+        });
+        return { intentEpoch: null, promise: Promise.resolve(false) };
+      }
+    }
     if (entry.destroying) {
       return {
         intentEpoch: null,
@@ -2278,7 +2330,32 @@ export class LayerLifecycle {
     }
   }
 
+  /**
+   * Reason the construction-time enable policy refuses a layer ('' = allowed).
+   * A throwing policy fails closed.
+   */
+  enablePolicyReason(layerId, origin = 'programmatic') {
+    if (!this._enablePolicy) return '';
+    try {
+      const result = this._enablePolicy(layerId, { origin });
+      if (typeof result === 'string') return result.trim();
+      if (result && typeof result.reason === 'string')
+        return result.reason.trim();
+      return '';
+    } catch (error) {
+      console.warn('[Data] enable policy error:', error);
+      return 'Blocked: the enable policy could not be evaluated.';
+    }
+  }
+
   async _visibilityBlockReason(change) {
+    if (change?.enabled === true) {
+      const policyReason = this.enablePolicyReason(
+        change.layerId,
+        change.origin,
+      );
+      if (policyReason) return policyReason;
+    }
     for (const callback of this._visibilityGuards) {
       try {
         const result = await callback(change);

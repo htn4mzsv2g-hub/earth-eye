@@ -1,5 +1,8 @@
 import * as Cesium from 'cesium';
-import { hitTestWorldOverlay } from '../../overlays/worldOverlay.js';
+import {
+  hitTestWorldOverlay,
+  hitTestWorldOverlayAll,
+} from '../../overlays/worldOverlay.js';
 import { VESSEL_OVERLAY_SOURCE_ID } from '../../data/vesselLabels.js';
 import { isPointerFree } from '../../data/inputOwnership.js';
 import {
@@ -14,21 +17,18 @@ import {
   CYCLONE_OVERLAY_SOURCE_ID,
   cycloneStormIdFromEntryId,
 } from './labels.js';
+import {
+  classificationName,
+  cycloneTemporalStatus,
+  publishCycloneSelection,
+  clearCycloneContext,
+} from './context.js';
+import { requestEventDetail } from '../../data/eventDetail.js';
 
 const utc = (value) =>
   value ? `${value.slice(5, 16).replace('T', ' ')} UTC` : 'Unavailable';
 const COVERAGE =
   'Atlantic and eastern/central North Pacific; not worldwide cyclone coverage.';
-const CLASSIFICATION_NAMES = Object.freeze({
-  PTC: 'Potential tropical cyclone',
-  HU: 'Hurricane',
-  TS: 'Tropical storm',
-  TD: 'Tropical depression',
-  SS: 'Subtropical storm',
-  SD: 'Subtropical depression',
-});
-const classificationName = (code) =>
-  Object.hasOwn(CLASSIFICATION_NAMES, code) ? CLASSIFICATION_NAMES[code] : code;
 const number = (value, unit) =>
   value === null ? 'Unavailable' : `${value} ${unit}`;
 
@@ -64,8 +64,15 @@ export function createCyclonesLayer({
     snapshot?.storms.find((storm) => storm.id === selectedId) || null;
   function select(id) {
     if (selectedId !== id) ++navigationGeneration;
+    const prev = selectedId;
     selectedId = id;
     rendering?.setSelection(id);
+    if (id) {
+      const storm = snapshot?.storms.find((item) => item.id === id);
+      if (storm) publishCycloneSelection(storm, snapshot);
+    } else if (prev) {
+      clearCycloneContext(prev);
+    }
   }
   // Photorealistic 3D Tiles pick as tileset content without an entity id;
   // that is empty map, the same as no pick at all on the globe.
@@ -147,16 +154,24 @@ export function createCyclonesLayer({
         ? nativeHit
         : overlayHit(click.position.x, click.position.y);
       if (hit.sourceId === VESSEL_OVERLAY_SOURCE_ID) return;
-      // Storm cards and lead-hour labels paint on the same canvas; a click on
-      // one selects its storm. An id from a superseded advisory changes nothing.
-      if (hit.sourceId === CYCLONE_OVERLAY_SOURCE_ID) {
-        const id = cycloneStormIdFromEntryId(hit.entryId);
-        if (id) layer.setParams({ stormId: id });
+      // Collect overlapping interactive overlays so a busy tap is not silent OSM.
+      const allHits = captureMatches
+        ? hitTestWorldOverlayAll(nativeHit.x, nativeHit.y)
+        : hitTestWorldOverlayAll(click.position.x, click.position.y);
+      const cycloneHits = allHits.filter(
+        (item) => item.sourceId === CYCLONE_OVERLAY_SOURCE_ID,
+      );
+      if (cycloneHits.length) {
+        // Prefer the topmost cyclone card/lead; lead hours still map to storm id.
+        const id = cycloneStormIdFromEntryId(cycloneHits[0].entryId);
+        if (id) layer.setParams({ stormId: id, focus: false, openDetail: true });
         return;
       }
+      // Other event overlays under the finger → do not clear cyclone / place-pick.
+      if (allHits.length) return;
       const picked = viewer.scene.pick(click.position);
       const id = rendering?.pickStorm(picked);
-      if (id) layer.setParams({ stormId: id });
+      if (id) layer.setParams({ stormId: id, openDetail: true });
       else if (isSurfacePick(picked)) layer.setParams({ clear: true });
     }, cesium.ScreenSpaceEventType.LEFT_CLICK);
   }
@@ -202,6 +217,7 @@ export function createCyclonesLayer({
       request = null;
       loading = false;
       error = null;
+      clearCycloneContext();
       snapshot = null;
       selectedId = null;
       selectionIntent = 'auto';
@@ -283,6 +299,9 @@ export function createCyclonesLayer({
         selectionIntent = 'user';
         select(params.stormId);
         notify();
+        if (params.openDetail === true) {
+          requestEventDetail('weather-cyclones', { stormId: params.stormId });
+        }
       }
       const storm = selected();
       if (params.focus === true && storm && runNavigation) {
@@ -359,15 +378,36 @@ export function createCyclonesLayer({
           lines: storm
             ? [
                 {
+                  id: 'identity',
+                  text: `${storm.name} · ${classificationName(storm.classification)} · id ${storm.id}`,
+                },
+                {
+                  id: 'temporal',
+                  text: `Status: ${cycloneTemporalStatus(storm, snapshot)}${snapshot?.stale ? ' (cached advisory)' : ''}`,
+                },
+                {
                   id: 'position',
-                  text: `Position as of ${utc(storm.positionAt)}`,
+                  text: `Position as of ${utc(storm.positionAt)} · Advisory ${storm.advisoryNumber} issued ${utc(storm.issuedAt)}`,
                   muted: true,
                 },
                 {
                   id: 'intensity',
                   text: `Maximum sustained wind: ${number(storm.windKt, 'kt')} · Pressure: ${number(storm.pressureHpa, 'hPa')}`,
                 },
+                {
+                  id: 'movement',
+                  text:
+                    storm.movement && Number.isFinite(storm.movement.speedKt)
+                      ? `Movement: ${storm.movement.directionDegrees}° at ${storm.movement.speedKt} kt`
+                      : 'Movement: Unavailable',
+                  muted: true,
+                },
                 { id: 'geometry', text: geometry, muted: true },
+                {
+                  id: 'colors',
+                  text: 'Cyan track = advisory center path; translucent cone = center-track uncertainty (not storm size). Colored heat underlay is a separate layer (e.g. wind forecast) — see its legend.',
+                  muted: true,
+                },
               ]
             : [],
           detail,

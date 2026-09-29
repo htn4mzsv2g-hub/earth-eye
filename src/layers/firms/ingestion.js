@@ -37,6 +37,11 @@ export function createIngestion({
       layerState._keyRequired = false;
       layerState._error = null;
       layerState._stale = Boolean(payload?.stale);
+      // Earth Eye: the proxy's keyless public-file path marks itself fallback.
+      layerState._fallback =
+        payload?.fallback === true
+          ? String(payload.fallbackLabel || 'keyless fallback')
+          : null;
       const previousSelection = layerState._selectedFire;
       layerState._selectedFire = null;
       layerState._fires = adaptFirmsRecords(payload?.fires);

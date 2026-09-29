@@ -177,7 +177,7 @@ export function buildCapabilitySummary(
     flights,
     voice: configured('OPENAI_API_KEY') ? 'available' : 'off until an OpenAI key is added',
     vessels: configured('AISSTREAM_API_KEY') ? 'live AISStream feed' : 'off until an AISStream key is added',
-    fires: configured('FIRMS_MAP_KEY') ? 'live NASA FIRMS feed' : 'off until a FIRMS key is added',
+    fires: configured('FIRMS_MAP_KEY') ? 'live NASA FIRMS feed' : 'keyless NASA public 24h files (labelled FALLBACK) until a FIRMS key is added',
     traffic: configured('TOMTOM_API_KEY') ? 'live TomTom flow' : 'built-in traffic simulation',
     missions: configured('LL2_API_TOKEN')
       ? 'Launch Library 2 token allowance'
@@ -224,7 +224,7 @@ export function formatSetupReport(report, { readyMessage } = {}) {
     ? 'Ready. Run ./scripts/dev-fresh.sh, then open http://localhost:4173.'
     : 'Ready. Run npm run dev, then open http://localhost:4173.');
   const lines = [
-    "Earth Eye setup doctor",
+    "Earth Eye setup doctor (based on God's Eye View, MIT)",
     '',
     `[${symbol(report.node.level)}] Node ${report.node.version}: ${report.node.summary}`,
     report.npm.available ? `[OK] npm ${report.npm.version}` : '[ERROR] npm was not found',

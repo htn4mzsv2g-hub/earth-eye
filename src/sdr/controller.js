@@ -1,4 +1,4 @@
-import { RTL2832U_Provider } from '@jtarrio/webrtlsdr/rtlsdr.js';
+/** RTL-SDR USB stack — loaded only on Connect (keeps webrtlsdr off the phone cold path). */
 import { findDirectionalFmPeak } from './spectrum.js';
 import {
   SDR_GAIN_DEFAULTS,
@@ -317,7 +317,15 @@ export class SdrController {
     this._seekToken = 0;
     // Every provider opens its device through the selecting WebUSB wrapper.
     const createProvider =
-      providerFactory || ((webusb) => new RTL2832U_Provider({ webusb }));
+      providerFactory ||
+      ((webusb) => ({
+        async get() {
+          const { RTL2832U_Provider } = await import(
+            '@jtarrio/webrtlsdr/rtlsdr.js'
+          );
+          return new RTL2832U_Provider({ webusb }).get();
+        },
+      }));
     this._providerFactory = ({
       onUsbDevice = () => {},
       isFenced = () => false,

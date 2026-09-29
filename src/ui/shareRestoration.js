@@ -2,6 +2,7 @@ import { LayerStateCoordinator } from '../data/layerState.js';
 import { stampInitialShareGesture } from '../navigationPolicy.js';
 import { canPresentDeferredStatusNotice } from '../loadingFeedback.js';
 import { UiLifetime } from './uiLifetime.js';
+import { createLiveEarthController } from '../atlas/liveEarthController.js';
 
 /** Own initial share restoration, durable layer state and restoration notices. */
 export class ShareRestoration {
@@ -32,6 +33,7 @@ export class ShareRestoration {
     this._initialShareRestoreTimeout = null;
     this._layerStateCoordinator = null;
     this._layerStateRestorePromise = null;
+    this._liveEarthController = null;
   }
   attachLinks(shareLinkManager) {
     this.shareLinkManager = shareLinkManager;
@@ -131,6 +133,8 @@ export class ShareRestoration {
   }
   connect(dataManager) {
     this._dataManager = dataManager;
+    this._liveEarthController?.destroy();
+    this._liveEarthController = null;
     this._layerStateCoordinator?.destroy();
     this._layerStateCoordinator = null;
     this._layerStateRestorePromise = null;
@@ -159,6 +163,22 @@ export class ShareRestoration {
       }
       void this._layerStateRestorePromise.then(() => {
         this.syncModels3d(this._layerStateCoordinator?.getDurableState());
+        if (
+          this._disposed ||
+          !this._dataManager ||
+          !this._layerStateCoordinator
+        )
+          return;
+        this._liveEarthController?.destroy();
+        this._liveEarthController = createLiveEarthController({
+          viewer: this.viewer,
+          dataManager: this._dataManager,
+          coordinator: this._layerStateCoordinator,
+          hasShareState: Boolean(this._initialShareState),
+        });
+        void this._liveEarthController.start().catch((error) => {
+          console.warn('[LIVE EARTH] Startup preset failed:', error);
+        });
       });
     }
   }
@@ -282,6 +302,8 @@ export class ShareRestoration {
     this._disposed = true;
     this._shareTrackingNoticeGeneration += 1;
     this._shareTrackingAcquiringKey = null;
+    this._liveEarthController?.destroy();
+    this._liveEarthController = null;
     this._layerStateCoordinator?.destroy();
     this._layerStateCoordinator = null;
     this._layerStateRestorePromise = null;

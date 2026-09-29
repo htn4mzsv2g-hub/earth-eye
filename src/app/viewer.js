@@ -1,5 +1,10 @@
 import * as Cesium from 'cesium';
 import { applyModelAtmosphereWorkaround } from './atmosphereCompat.js';
+import { resolveMobileGpuProfile } from './mobileGpuProfile.js';
+import {
+  isGraphicsInitFailure,
+  wrapGraphicsInitFailure,
+} from './graphicsRecovery.js';
 
 const PINCH_ZOOM_MULTIPLIER = 8;
 const MAX_PINCH_PIXEL_DELTA = 120;
@@ -106,25 +111,40 @@ export function installTrackpadPinchZoom(
 export function createApplicationViewer({ container, creditContainer }) {
   if (!container || !creditContainer)
     throw new TypeError('Viewer and credit containers are required');
-  const viewer = new Cesium.Viewer(container, {
-    timeline: false,
-    animation: false,
-    baseLayerPicker: false,
-    geocoder: false,
-    homeButton: false,
-    sceneModePicker: false,
-    navigationHelpButton: false,
-    fullscreenButton: false,
-    vrButton: false,
-    selectionIndicator: false,
-    infoBox: false,
-    baseLayer: false,
-    creditContainer,
-    msaaSamples: 4,
-    contextOptions: { webgl: { preserveDrawingBuffer: true } },
-  });
+  const gpu = resolveMobileGpuProfile();
+  let viewer;
   try {
-    viewer.targetFrameRate = 60;
+    viewer = new Cesium.Viewer(container, {
+      timeline: false,
+      animation: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
+      vrButton: false,
+      selectionIndicator: false,
+      infoBox: false,
+      baseLayer: false,
+      creditContainer,
+      msaaSamples: gpu.msaaSamples,
+      contextOptions: { webgl: { preserveDrawingBuffer: true } },
+    });
+  } catch (error) {
+    // CesiumWidget WebGL failures (incl. “supports WebGL, but initialization
+    // failed”) become GraphicsInitError so the app can enter non-3D mode.
+    throw wrapGraphicsInitFailure(error);
+  }
+  try {
+    viewer.targetFrameRate = gpu.targetFrameRate;
+    if (
+      Number.isFinite(gpu.resolutionScale) &&
+      gpu.resolutionScale > 0 &&
+      gpu.resolutionScale < 1
+    ) {
+      viewer.resolutionScale = gpu.resolutionScale;
+    }
     // Before any tile builds a draw command: Cesium's per-vertex model
     // atmosphere fails to LINK on Apple's Metal backend and kills the
     // render loop. See app/atmosphereCompat.js.
@@ -136,7 +156,12 @@ export function createApplicationViewer({ container, creditContainer }) {
     viewer.scene.skyAtmosphere.brightnessShift = -0.08;
     return viewer;
   } catch (error) {
-    viewer.destroy();
+    try {
+      if (viewer && !viewer.isDestroyed?.()) viewer.destroy();
+    } catch {
+      /* tearing down a half-built viewer */
+    }
+    if (isGraphicsInitFailure(error)) throw wrapGraphicsInitFailure(error);
     throw error;
   }
 }

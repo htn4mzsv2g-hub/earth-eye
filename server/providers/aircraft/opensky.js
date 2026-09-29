@@ -1,3 +1,4 @@
+import { serviceBlockedByCommercialSafe } from '../policy-flags.js';
 import { normalizeAdsbLolPointResponse } from '../../../src/data/adsbLolFallback.js';
 import {
   coalesceProxyRequest,
@@ -260,7 +261,7 @@ async function fetchAdsbLolPointFallback(req) {
           {
             headers: {
               Accept: 'application/json',
-              'User-Agent': 'gods-eye-view-adsblol-regional-fallback/1.0',
+              'User-Agent': 'earth-eye-adsblol-regional-fallback/1.0',
             },
             signal: controller.signal,
           },
@@ -403,6 +404,34 @@ export function openSkyProxy() {
         // Cooling down with nothing cached (cold start into a rate limit):
         // synthesize the 429 locally — hammering upstream mid-cooldown can't
         // succeed and just burns goodwill.
+        // Commercial-safe mode: OpenSky's terms are non-commercial, so the
+        // proxy goes straight to the adsb.lol (ODbL) regional feed.
+        if (serviceBlockedByCommercialSafe('opensky')) {
+          if (
+            await serveAdsbLolPointFallback(
+              req,
+              res,
+              requestedMode,
+              'commercial_safe_regional_fallback',
+            )
+          )
+            return;
+          res.writeHead(
+            503,
+            buildOpenSkyHeaders({
+              cacheStatus: 'BYPASS',
+              requestedMode,
+              usedMode: 'none',
+              reason: 'commercial_safe_mode',
+            }),
+          );
+          res.end(
+            JSON.stringify({
+              error: 'OpenSky is off in commercial-safe mode.',
+            }),
+          );
+          return;
+        }
         if (inCooldown) {
           if (
             await serveAdsbLolPointFallback(

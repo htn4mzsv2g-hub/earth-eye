@@ -1,5 +1,6 @@
 import { MAP_STACKS } from './catalog.js';
 import { photorealUnavailableReason } from './availability.js';
+import { GOOGLE_PHOTOREAL_CREDIT_HTML } from './googlePhotorealQuota.js';
 import { keySetupRequirement } from '../keySetupCore.mjs';
 import {
   createOsmImagery,
@@ -28,7 +29,13 @@ export function createDefaultMapSources({
     defaultId: googleTileset ? 'photoreal' : 'esri-imagery',
     unknownId: 'photoreal',
     recoveryId: googleTileset ? 'photoreal' : null,
-    state: { hasCesiumIonToken: hasIon },
+    state: {
+      hasCesiumIonToken: hasIon,
+      hasGoogleMapsKey: hasGoogle,
+      photorealConfigured: hasIon || hasGoogle,
+      photorealActive: Boolean(googleTileset),
+      globeStackPriority: ['google-direct', 'google-ion', 'esri-imagery', 'osm'],
+    },
     sources: MAP_STACKS.map((descriptor) => {
       const common = {
         descriptor,
@@ -43,6 +50,7 @@ export function createDefaultMapSources({
           available: Boolean(googleTileset),
           unavailableReason: photorealUnavailableReason(hasIon || hasGoogle),
           tileset: googleTileset,
+          credit: GOOGLE_PHOTOREAL_CREDIT_HTML,
         };
       const imagery =
         descriptor.kind === 'ion'
@@ -61,10 +69,13 @@ export function createDefaultMapSources({
                 id: 'osm',
                 message: 'Esri Satellite is unavailable; using OSM',
               },
+              // Threshold was 2 — flaky mobile Safari flipped to OSM street
+              // tiles and looked broken vs aerial. Stay on Esri longer.
               tileFailureFallback: {
                 id: 'osm',
-                threshold: 2,
-                message: 'Esri Satellite tile requests failed; using OSM',
+                threshold: 16,
+                message:
+                  'Esri Satellite tiles failing; falling back to OSM roads (not aerial)',
               },
             }
           : {}),
