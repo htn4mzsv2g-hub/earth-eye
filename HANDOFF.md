@@ -180,12 +180,30 @@ Honest status for the incoming developer. “Verified” here means owner, ChatG
 
 **Do not merge these into known-good or `main`. Do not deploy them.**
 
+WIP park is done. Exact facts:
+
+- Branch `wip/chatgpt-handoff-2026-09-29` tip **`6ee111c15642a717b9f13321824ba248b9c1cc02`**.
+- Draft PR #5: https://github.com/htn4mzsv2g-hub/earth-eye/pull/5 (**DO NOT MERGE**).
+- That tip contains a real `wip-parked/` snapshot (**7 files**) past the restore line it was branched from. It is **not** an empty restore-only tip.
+- The full test log is also at `wip-parked/HANDOFF_FULL_TEST_LOG_b846a3e.txt` on that branch. The same full log stays committed on this restore/handoff branch at [`docs/HANDOFF_FULL_TEST_LOG_b846a3e.txt`](docs/HANDOFF_FULL_TEST_LOG_b846a3e.txt).
+- Omissions: the full divergent atlas-eye history and the ~89-file tree were **not** uploaded. Secrets and `node_modules` were omitted. RESIL stays on `cursor/sat-celestrak-resilience-abf1` @ `596af727b718186cc4a936ae1d6847fbab0db129` (`596af72`), [PR #4](https://github.com/htn4mzsv2g-hub/earth-eye/pull/4). **DO NOT MERGE. DO NOT DEPLOY.**
+
+The seven `wip-parked/` files at `6ee111c`:
+
+- `wip-parked/README.md`
+- `wip-parked/OMISSIONS.md`
+- `wip-parked/HANDOFF_FULL_TEST_LOG_b846a3e.txt`
+- `wip-parked/snapshot-from-local-c6ef09d/HANDOFF.md`
+- `wip-parked/snapshot-from-local-c6ef09d/docs/EE_IPHONE_GLOBE_FREEZE_REGRESSION_2026-09-29.md`
+- `wip-parked/snapshot-from-local-c6ef09d/docs/UPSTREAM_DELTA_REVIEW.md`
+- `wip-parked/snapshot-from-local-c6ef09d/scripts/ee-iphone-globe-probe.mjs`
+
 | Pointer | Where it points | How to treat it |
 | --- | --- | --- |
-| `wip/chatgpt-handoff-2026-09-29` | Parked snapshot branch from a separate agent. Origin tip read after that park: `6ee111c15642a717b9f13321824ba248b9c1cc02` (“Park the local c6ef09d snapshot on the ChatGPT handoff branch.”), parent `6a61647`. It adds `wip-parked/` only. | **DO NOT MERGE. DO NOT DEPLOY.** |
-| `cursor/sat-celestrak-resilience-abf1` | `596af727b718186cc4a936ae1d6847fbab0db129` ([PR #4](https://github.com/htn4mzsv2g-hub/earth-eye/pull/4)) | Unfinished RESIL-01 CelesTrak resilience. Cancelled mid-flight. Not production. |
+| `wip/chatgpt-handoff-2026-09-29` | **`6ee111c15642a717b9f13321824ba248b9c1cc02`**. Draft [PR #5](https://github.com/htn4mzsv2g-hub/earth-eye/pull/5). Real 7-file `wip-parked/` snapshot, not an empty restore-only tip. | **DO NOT MERGE. DO NOT DEPLOY.** |
+| `cursor/sat-celestrak-resilience-abf1` | `596af727b718186cc4a936ae1d6847fbab0db129` ([PR #4](https://github.com/htn4mzsv2g-hub/earth-eye/pull/4)) | Unfinished RESIL-01. Not part of the WIP park snapshot. Not production. |
 | `fix/audit10-workflow` | `d78c49cd3bc4313077823965dd11d1f7d2138cf5` | Divergent historical WIP versus the local atlas-eye line (remote tip is a squashed Fly v58 audit-10 checkpoint). In this clone that SHA is an ancestor of the restore branch. Checking it out drops the later iPhone globe fixes. Not the known-good tree. |
-| Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **History not on GitHub.** Parent recorded as `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`. That object is not on origin; the line diverges from `origin/fix/audit10-workflow`. The separate agent copied four files into `wip-parked/snapshot-from-local-c6ef09d/` on `6ee111c` and wrote `wip-parked/OMISSIONS.md`: the full tree and the divergent history were not uploaded. Do not recreate, force-push, merge, or deploy that history from this handoff. |
+| Local atlas-eye tip | `c6ef09d852db1675f501d54d8c27d1897334804d` | **History not on GitHub.** Parent recorded as `e91d7a6ea9ca49b65f9f19f0bbed08024b0760c3`. The ~89-file tree was not uploaded. Do not recreate, force-push, merge, or deploy that history. |
 
 `origin/work/fly-v58-checkpoint-2026-09-29` is the same SHA as `fix/audit10-workflow`. `origin/handoff/2026-09-29` (`b7259df`) is an older docs branch off `main`. Neither is production.
 
